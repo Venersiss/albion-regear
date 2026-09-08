@@ -70,6 +70,27 @@ export function toUiPlan(row, requests = []) {
   }
 }
 
+export function toUiRequest(row, members = []) {
+  const member = members.find((entry) => entry.id === row.member_id)
+  return {
+    id: row.id,
+    memberId: row.member_id,
+    memberName: member?.character_name || 'Unknown member',
+    role: row.role,
+    diedAt: row.died_at || row.created_at,
+    deathNote: row.death_note || '',
+    chest: row.issue_chest || 'Unassigned',
+    status: row.status,
+    weapon: row.weapon,
+    offHand: row.off_hand,
+    helmet: row.helmet,
+    armor: row.armor,
+    boots: row.boots,
+    silverCost: row.silver_cost || 0,
+    regearedAt: row.regeared_at,
+  }
+}
+
 export async function loadWorkspace() {
   if (!supabase) throw new Error('Supabase is not configured')
 
@@ -97,6 +118,7 @@ export async function loadWorkspace() {
     members: membersResult.data.map((row) => toUiMember(row, requestsResult.data, guild.name)),
     items: itemsResult.data.map(toUiItem),
     plans: plansResult.data.map((row) => toUiPlan(row, requestsResult.data)),
+    requests: requestsResult.data.map((row) => toUiRequest(row, membersResult.data)),
   }
 }
 
@@ -172,6 +194,7 @@ export async function insertRegearRequest(guildId, request) {
     role: request.role,
     death_note: request.note,
     issue_chest: request.chest || 'Unassigned',
+    died_at: request.diedAt || new Date().toISOString(),
     chest_id: await chestIdFor(guildId, request.chest),
     ...slots,
   }).select('*').single()
@@ -180,11 +203,13 @@ export async function insertRegearRequest(guildId, request) {
 }
 
 export async function markRequestRegeared(guildId, requestId) {
+  const regearedAt = new Date().toISOString()
   const { error } = await supabase.from('regear_requests').update({
     status: 'regeared',
-    regeared_at: new Date().toISOString(),
+    regeared_at: regearedAt,
   }).eq('id', requestId).eq('guild_id', guildId)
   if (error) throw error
+  return regearedAt
 }
 
 export async function insertPlan(guildId, plan) {

@@ -51,6 +51,39 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .button-danger:hover { border-color: #b96e61; color: #f0b6a7; background: rgba(116, 48, 39, .32); }
 .logout-button { margin-left: auto; border: 0; background: transparent; color: #c48a6c; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
 .logout-button:hover { color: #f0b6a7; }
+.daily-layout { display: grid; grid-template-columns: 245px minmax(0, 1fr); gap: 18px; align-items: start; }
+.day-list { padding: 14px; }
+.day-list-heading { display: flex; align-items: center; justify-content: space-between; padding: 4px 5px 13px; border-bottom: 1px solid var(--line); }
+.day-list-heading strong { color: #b9aa9d; font-family: 'DM Mono', monospace; font-size: 9px; font-weight: 400; }
+.day-button { width: 100%; display: grid; gap: 5px; margin-top: 6px; padding: 11px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #a99c91; text-align: left; cursor: pointer; }
+.day-button:hover { background: #211b17; color: #e0d2c6; }
+.day-button.selected { border-color: #69452f; background: #302119; color: #f0dfd0; box-shadow: inset 2px 0 var(--ember); }
+.day-button small { color: #786e65; font-family: 'DM Mono', monospace; font-size: 8px; }
+.new-day-field { display: grid; gap: 7px; margin: 17px 4px 3px; padding-top: 15px; border-top: 1px solid var(--line); color: #80756c; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; }
+.new-day-field input { min-height: 33px; border: 1px solid var(--line); border-radius: 5px; padding: 0 8px; background: #171411; color: #d9cabe; }
+.daily-detail-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
+.daily-detail-heading h2 { margin: 7px 0 4px; color: #e6d9ce; font-family: 'Newsreader', serif; font-size: 27px; font-weight: 500; }
+.daily-detail-heading p { margin: 0; color: #81766d; font-family: 'DM Mono', monospace; font-size: 9px; }
+.regear-entry-list { display: grid; gap: 10px; }
+.regear-entry { padding: 16px 18px; }
+.regear-entry-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.regear-member { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.regear-member h3 { overflow: hidden; margin: 0 0 4px; color: #e0d3c8; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.regear-member span, .regear-entry-meta { color: #83786e; font-family: 'DM Mono', monospace; font-size: 8px; }
+.regear-entry-meta { display: flex; gap: 12px; margin: 13px 0 11px; }
+.regear-items { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; padding: 11px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.regear-items div { display: grid; gap: 5px; min-width: 0; }
+.regear-items span { color: #756b63; font-family: 'DM Mono', monospace; font-size: 7px; text-transform: uppercase; }
+.regear-items strong { overflow: hidden; color: #cfc1b5; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.regear-items > span { grid-column: 1 / -1; color: #81766d; font-size: 9px; }
+.regear-entry > .button { margin-top: 13px; min-height: 30px; font-size: 9px; }
+.slot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.slot-picker { min-width: 0; }
+.slot-picker label { margin-bottom: 5px; }
+.slot-add { border: 0; padding: 0; background: transparent; color: var(--ember); font-family: 'DM Mono', monospace; font-size: 8px; cursor: pointer; }
+.slot-add:hover { color: #efaa76; }
+@media (max-width: 760px) { .daily-layout { grid-template-columns: 1fr; }.day-list { display: flex; flex-wrap: wrap; gap: 6px; }.day-list-heading { width: 100%; }.day-button { width: auto; min-width: 145px; margin-top: 0; }.new-day-field { width: 100%; }.regear-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .daily-detail-heading { align-items: stretch; flex-direction: column; }.daily-detail-heading .button { width: 100%; }.slot-grid { grid-template-columns: 1fr; }.regear-entry { padding: 14px; }.regear-entry-top { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 600px) {
   .app-shell { padding-bottom: 0; }
   .mobile-menu-button { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 8px; background: #171411; color: #d2b29b; }
