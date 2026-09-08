@@ -60,12 +60,17 @@ create table if not exists public.items (
   chest_id uuid references public.chests(id) on delete set null,
   name text not null,
   category text not null,
+  tier text not null default 'Unspecified',
   quantity integer not null default 0 check (quantity >= 0),
   minimum_quantity integer not null default 0 check (minimum_quantity >= 0),
   created_at timestamptz not null default now()
 );
 
-create unique index if not exists items_guild_name_idx on public.items (guild_id, lower(name));
+alter table public.items
+  add column if not exists tier text not null default 'Unspecified';
+
+drop index if exists items_guild_name_idx;
+create unique index if not exists items_guild_name_tier_idx on public.items (guild_id, lower(name), tier);
 
 create table if not exists public.regear_plans (
   id uuid primary key default gen_random_uuid(),

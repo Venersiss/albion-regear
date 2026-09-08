@@ -45,6 +45,7 @@ export function toUiItem(row) {
     id: row.id,
     name: row.name,
     category: row.category,
+    tier: row.tier || 'Unspecified',
     chest: row.chests?.label || 'Unassigned',
     stock: `${quantity} / ${minimum}`,
     quantity,
@@ -169,6 +170,7 @@ export async function insertItem(guildId, item) {
     guild_id: guildId,
     name: item.name,
     category: item.category,
+    tier: item.tier || 'Unspecified',
     quantity: Number(item.quantity || 0),
     minimum_quantity: Number(item.minimumQuantity || 0),
   }).select('*, chests(label)').single()

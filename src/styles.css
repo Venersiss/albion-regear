@@ -64,6 +64,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .daily-detail-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
 .daily-detail-heading h2 { margin: 7px 0 4px; color: #e6d9ce; font-family: 'Newsreader', serif; font-size: 27px; font-weight: 500; }
 .daily-detail-heading p { margin: 0; color: #81766d; font-family: 'DM Mono', monospace; font-size: 9px; }
+.daily-filters { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(150px, .7fr); gap: 10px; margin-bottom: 13px; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: rgba(24, 20, 17, .82); }
+.daily-filters label { display: grid; gap: 6px; color: #847970; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; }
+.daily-filters input, .daily-filters select { min-height: 34px; border: 1px solid var(--line); border-radius: 5px; padding: 0 9px; outline: 0; background: #171411; color: #ddcfc3; font-family: inherit; font-size: 10px; text-transform: none; }
+.daily-filters input:focus, .daily-filters select:focus { border-color: #805237; box-shadow: 0 0 0 2px rgba(212, 119, 54, .1); }
 .regear-entry-list { display: grid; gap: 10px; }
 .regear-entry { padding: 16px 18px; }
 .regear-entry-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -84,6 +88,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .slot-add:hover { color: #efaa76; }
 @media (max-width: 760px) { .daily-layout { grid-template-columns: 1fr; }.day-list { display: flex; flex-wrap: wrap; gap: 6px; }.day-list-heading { width: 100%; }.day-button { width: auto; min-width: 145px; margin-top: 0; }.new-day-field { width: 100%; }.regear-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .daily-detail-heading { align-items: stretch; flex-direction: column; }.daily-detail-heading .button { width: 100%; }.slot-grid { grid-template-columns: 1fr; }.regear-entry { padding: 14px; }.regear-entry-top { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 520px) { .daily-filters { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .app-shell { padding-bottom: 0; }
   .mobile-menu-button { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 8px; background: #171411; color: #d2b29b; }
