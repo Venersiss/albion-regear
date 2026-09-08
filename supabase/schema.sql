@@ -92,6 +92,32 @@ create table if not exists public.regear_assignments (
   unique (plan_id, member_id)
 );
 
+-- A regear request is created by an admin after a member dies during a CTA.
+-- Keep this separate from the scheduled CTA so one CTA can produce many requests.
+create table if not exists public.regear_requests (
+  id uuid primary key default gen_random_uuid(),
+  guild_id uuid not null references public.guilds(id) on delete cascade,
+  member_id uuid not null references public.members(id) on delete cascade,
+  cta_plan_id uuid references public.regear_plans(id) on delete set null,
+  reported_by uuid references auth.users(id) on delete set null,
+  died_at timestamptz not null default now(),
+  death_note text,
+  chest_id uuid references public.chests(id) on delete set null,
+  weapon text,
+  off_hand text,
+  helmet text,
+  armor text,
+  boots text,
+  status text not null default 'open' check (status in ('open', 'issued', 'regeared')),
+  silver_cost integer not null default 0 check (silver_cost >= 0),
+  issued_by uuid references auth.users(id) on delete set null,
+  issued_at timestamptz,
+  regeared_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists regear_requests_guild_status_idx on public.regear_requests(guild_id, status, created_at desc);
+
 create table if not exists public.role_templates (
   id uuid primary key default gen_random_uuid(),
   guild_id uuid not null references public.guilds(id) on delete cascade,
@@ -129,5 +155,6 @@ alter table public.chests enable row level security;
 alter table public.items enable row level security;
 alter table public.regear_plans enable row level security;
 alter table public.regear_assignments enable row level security;
+alter table public.regear_requests enable row level security;
 alter table public.role_templates enable row level security;
 alter table public.member_access_codes enable row level security;

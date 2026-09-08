@@ -18,7 +18,8 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 ## Current prototype behavior
 
 - Admin dashboard with attention queue, plans, activity, and armory health.
-- Regear plan list with upcoming/in-progress/complete states.
+- CTA event list with upcoming/in-progress/complete states.
+- Death-to-regear workflow: report a CTA casualty, select needed pieces, then mark the request issued/regeared.
 - Member roster with search, add member, and mark-ready interactions.
 - Role classification and filtering for Tank, Support, Healer, DPS, Bomb, and Caller.
 - Plan budgets, issuing-admin history, and role-based kit template scaffolding.
@@ -30,7 +31,7 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 
 ## Suggested next backend steps
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor.
+1. Run `supabase/schema.sql` in the Supabase SQL editor and set your private bootstrap Gmail on the guild row.
 2. Add Supabase Auth for admin accounts only.
 3. Replace the mock arrays in `src/main.jsx` with queries/mutations through a small data service.
 4. Add a public member view keyed by a one-time invite code, with no write permissions.
