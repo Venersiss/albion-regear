@@ -25,7 +25,7 @@ export function toUiMember(row, requests = [], guildName = 'Coup De Grace') {
     guild: guildName,
     avatar: row.character_name?.[0]?.toUpperCase() || '?',
     tone: toneFor(row.character_name),
-    status: open ? 'Open regear' : 'Ready',
+    status: open ? 'Open regear' : 'No open request',
     chest: row.issue_chest || 'Unassigned',
     last: request ? displayDate(request.regeared_at || request.created_at) : 'Not yet',
     issuedBy: request?.issued_by ? 'Administrator' : 'Pending',
