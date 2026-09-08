@@ -195,6 +195,7 @@ function App() {
   }
 
   const navigate = (page) => { setActive(page); setMobileNavOpen(false) }
+  const handleSignOut = async () => { try { await supabase?.auth.signOut() } finally { setSession(null); setGuild(null); setCtaPlans([]); setMobileNavOpen(false) } }
 
   if (isSupabaseConfigured && authLoading) return <LoadingScreen text="Checking admin access..." />
   if (isSupabaseConfigured && !session) return publicView ? <PublicMemberShell onAdminLogin={() => setPublicView(false)} /> : <AuthGate onMemberView={() => setPublicView(true)} />
@@ -202,7 +203,7 @@ function App() {
   if (isSupabaseConfigured && session && liveError && !guild) return <ConnectionError message={liveError} onSignOut={() => supabase.auth.signOut()} />
 
   return <div className="app-shell">
-    <Sidebar active={active} onNavigate={navigate} userEmail={session?.user?.email} onSignOut={() => supabase?.auth.signOut()} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={ctaPlans.length} />
+    <Sidebar active={active} onNavigate={navigate} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={ctaPlans.length} />
     <main className="main-content">
       <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} />
       {active === 'Dashboard' && <DashboardLive members={members} items={items} plans={ctaPlans} onOpenMember={() => setShowMemberModal(true)} onOpenPlan={() => setShowPlanModal(true)} onOpenDeath={() => setShowDeathModal(true)} onNavigate={navigate} onMark={liveMarkRegeared} />}
@@ -259,7 +260,7 @@ function Sidebar({ active, onNavigate, userEmail, onSignOut, mobileNavOpen, onCl
     <div className="sidebar-public"><button className={`nav-item ${active === 'Member view' ? 'active' : ''}`} onClick={() => onNavigate('Member view')}><Icon name="eye" size={17} /><span>Member view</span></button></div>
     <div className="sidebar-bottom">
       <button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => onNavigate('Settings')}><Icon name="settings" size={17} /><span>Settings</span></button>
-      <div className="user-card"><div className="avatar avatar-admin">{userEmail?.[0]?.toUpperCase() || 'A'}</div><div className="user-meta"><strong>{userEmail || 'Administrator'}</strong><span>Administrator</span></div><button className="icon-button" onClick={onSignOut} aria-label="Sign out" title="Sign out"><Icon name="more" size={17} /></button></div>
+      <div className="user-card"><div className="avatar avatar-admin">{userEmail?.[0]?.toUpperCase() || 'A'}</div><div className="user-meta"><strong>{userEmail || 'Administrator'}</strong><span>Administrator</span></div><button className="logout-button" onClick={onSignOut} aria-label="Log out" title="Log out">Log out</button></div>
       <div className="version">v0.1 prototype <span>·</span> Supabase ready</div>
     </div>
   </aside></>

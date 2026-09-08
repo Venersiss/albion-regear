@@ -49,6 +49,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .member-card-actions { display: flex; align-items: center; gap: 7px; }
 .button-danger { border-color: rgba(196, 91, 74, .35); color: #dc9b8d; background: rgba(116, 48, 39, .18); }
 .button-danger:hover { border-color: #b96e61; color: #f0b6a7; background: rgba(116, 48, 39, .32); }
+.logout-button { margin-left: auto; border: 0; background: transparent; color: #c48a6c; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
+.logout-button:hover { color: #f0b6a7; }
 @media (max-width: 600px) {
   .app-shell { padding-bottom: 0; }
   .mobile-menu-button { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 8px; background: #171411; color: #d2b29b; }
