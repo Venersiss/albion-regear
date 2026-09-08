@@ -24,6 +24,8 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 - Role classification and filtering for Tank, Support, Healer, DPS, Bomb, and Caller.
 - Plan budgets, issuing-admin history, and role-based kit template scaffolding.
 - Armory inventory with chest location and stock health.
+- Free-text chest locations that admins can update inline.
+- Supabase-backed item catalog shape with autocomplete-ready names and admin add-item flow.
 - Read-only member board showing the next CTA, assigned chest, and kit slots without member accounts.
 - Closed admin access: the first admin is bootstrapped by Gmail, then existing admins invite additional Gmail addresses.
 - Settings screen and responsive layout for smaller screens.

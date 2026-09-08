@@ -64,6 +64,8 @@ create table if not exists public.items (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists items_guild_name_idx on public.items (guild_id, lower(name));
+
 create table if not exists public.regear_plans (
   id uuid primary key default gen_random_uuid(),
   guild_id uuid not null references public.guilds(id) on delete cascade,
