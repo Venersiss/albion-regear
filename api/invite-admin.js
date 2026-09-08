@@ -29,7 +29,7 @@ export default async function handler(req, res) {
   if (pendingError) return res.status(500).json({ error: pendingError.message })
   if (pending) return res.status(409).json({ error: 'That email already has a pending invitation.' })
 
-  const redirectTo = process.env.APP_URL || req.headers.origin || 'https://albion-regear.vercel.app'
+  const redirectTo = process.env.APP_URL || 'https://albion-regear.vercel.app'
   const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: `${redirectTo.replace(/\/$/, '')}/` })
   if (inviteError) return res.status(400).json({ error: inviteError.message })
 

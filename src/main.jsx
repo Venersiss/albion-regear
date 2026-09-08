@@ -73,6 +73,7 @@ function App() {
   const [ctaPlans, setCtaPlans] = useState([])
   const [publicView, setPublicView] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [invitePending, setInvitePending] = useState(() => typeof window !== 'undefined' && window.location.hash.includes('type=invite'))
 
   const filteredMembers = useMemo(() => members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.role.toLowerCase().includes(query.toLowerCase())), [members, query])
   const notify = (message) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
@@ -206,6 +207,7 @@ function App() {
 
   if (isSupabaseConfigured && authLoading) return <LoadingScreen text="Checking admin access..." />
   if (isSupabaseConfigured && !session) return publicView ? <PublicMemberShell onAdminLogin={() => setPublicView(false)} /> : <AuthGate onMemberView={() => setPublicView(true)} />
+  if (isSupabaseConfigured && session && invitePending) return <SetPasswordGate email={session.user?.email} onComplete={() => setInvitePending(false)} />
   if (isSupabaseConfigured && session && (dataLoading || (!guild && !liveError))) return <LoadingScreen text="Loading Coup De Grace workspace..." />
   if (isSupabaseConfigured && session && liveError && !guild) return <ConnectionError message={liveError} onSignOut={() => supabase.auth.signOut()} />
 
@@ -230,6 +232,25 @@ function App() {
 
 function LoadingScreen({ text }) {
   return <div className="auth-shell"><div className="auth-card loading-card"><div className="brand-mark">A<span>R</span></div><span className="eyebrow">Coup De Grace</span><h1>{text}</h1><div className="loading-line" /></div></div>
+}
+
+function SetPasswordGate({ email, onComplete }) {
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const savePassword = async (event) => {
+    event.preventDefault()
+    if (password.length < 8) { setError('Use at least 8 characters for your password.'); return }
+    if (password !== confirmation) { setError('The passwords do not match.'); return }
+    setBusy(true)
+    setError('')
+    const { error: updateError } = await supabase.auth.updateUser({ password })
+    if (updateError) setError(updateError.message)
+    else { window.history.replaceState({}, document.title, window.location.pathname); onComplete() }
+    setBusy(false)
+  }
+  return <div className="auth-shell login-shell"><div className="auth-card"><div className="auth-brand"><div className="brand-mark">A<span>R</span></div><div><strong>Albion <em>Regear</em></strong><small>COUP DE GRACE</small></div></div><span className="eyebrow">Administrator invitation</span><h1>Create your password.</h1><p>Finish setting up {email || 'your administrator account'} to access Coup De Grace.</p><form onSubmit={savePassword} className="auth-form"><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" required /></label><label>Confirm password<input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" placeholder="Repeat your password" required /></label>{error && <div className="auth-error" role="alert">{error}</div>}<button className="button button-primary auth-submit" disabled={busy}>{busy ? 'Saving password...' : 'Finish account setup'}</button></form><small className="auth-note">After setup, you will enter the administrator dashboard.</small></div></div>
 }
 
 function AuthGate({ onMemberView }) {
