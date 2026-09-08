@@ -24,6 +24,7 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 - Plan budgets, issuing-admin history, and role-based kit template scaffolding.
 - Armory inventory with chest location and stock health.
 - Read-only member board showing the next CTA, assigned chest, and kit slots without member accounts.
+- Closed admin access: the first admin is bootstrapped by Gmail, then existing admins invite additional Gmail addresses.
 - Settings screen and responsive layout for smaller screens.
 - Mock state is intentionally in-memory until Supabase is connected.
 
@@ -34,4 +35,4 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 3. Replace the mock arrays in `src/main.jsx` with queries/mutations through a small data service.
 4. Add a public member view keyed by a one-time invite code, with no write permissions.
 
-The safest member flow is a public site with a private, expiring member invite code. This avoids forcing accounts while preventing the full guild roster and inventory from being publicly searchable.
+The safest member flow is one public guild link with a private, expiring member invite code for personal kit details. Admins use Supabase Auth with the bootstrap Gmail address and invitation-only admin access; there is no public admin self-registration.

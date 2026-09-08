@@ -7,6 +7,9 @@ create table if not exists public.guilds (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   region text not null default 'Americas',
+  bootstrap_admin_email text not null,
+  public_slug text not null unique,
+  public_access_enabled boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -16,6 +19,20 @@ create table if not exists public.guild_admins (
   created_at timestamptz not null default now(),
   primary key (guild_id, user_id)
 );
+
+create table if not exists public.admin_invites (
+  id uuid primary key default gen_random_uuid(),
+  guild_id uuid not null references public.guilds(id) on delete cascade,
+  email text not null,
+  invited_by uuid not null references auth.users(id) on delete restrict,
+  token_hash text not null unique,
+  expires_at timestamptz not null default (now() + interval '7 days'),
+  accepted_by uuid references auth.users(id) on delete set null,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists admin_invites_guild_email_idx on public.admin_invites (guild_id, lower(email)) where accepted_at is null;
 
 create table if not exists public.members (
   id uuid primary key default gen_random_uuid(),
@@ -106,6 +123,7 @@ create index if not exists plans_guild_id_starts_at_idx on public.regear_plans(g
 -- and a public member lookup/invite code in the next integration pass.
 alter table public.guilds enable row level security;
 alter table public.guild_admins enable row level security;
+alter table public.admin_invites enable row level security;
 alter table public.members enable row level security;
 alter table public.chests enable row level security;
 alter table public.items enable row level security;
