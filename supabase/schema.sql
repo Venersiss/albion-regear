@@ -68,8 +68,34 @@ create table if not exists public.regear_assignments (
   armor text,
   boots text,
   status text not null default 'needed' check (status in ('needed', 'issued', 'regeared')),
+  silver_cost integer not null default 0 check (silver_cost >= 0),
+  issued_by uuid references auth.users(id) on delete set null,
+  issued_at timestamptz,
   marked_at timestamptz,
   unique (plan_id, member_id)
+);
+
+create table if not exists public.role_templates (
+  id uuid primary key default gen_random_uuid(),
+  guild_id uuid not null references public.guilds(id) on delete cascade,
+  role text not null check (role in ('Tank', 'Support', 'Healer', 'DPS', 'Bomb', 'Caller')),
+  name text not null,
+  weapon text,
+  off_hand text,
+  helmet text,
+  armor text,
+  boots text,
+  created_at timestamptz not null default now(),
+  unique (guild_id, role, name)
+);
+
+create table if not exists public.member_access_codes (
+  id uuid primary key default gen_random_uuid(),
+  guild_id uuid not null references public.guilds(id) on delete cascade,
+  member_id uuid not null references public.members(id) on delete cascade,
+  code_hash text not null unique,
+  expires_at timestamptz,
+  created_at timestamptz not null default now()
 );
 
 create index if not exists members_guild_id_idx on public.members(guild_id);
@@ -85,4 +111,5 @@ alter table public.chests enable row level security;
 alter table public.items enable row level security;
 alter table public.regear_plans enable row level security;
 alter table public.regear_assignments enable row level security;
-
+alter table public.role_templates enable row level security;
+alter table public.member_access_codes enable row level security;
