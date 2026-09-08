@@ -26,6 +26,7 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 - Armory inventory with chest location and stock health.
 - Free-text chest locations that admins can update inline.
 - Supabase-backed item catalog shape with autocomplete-ready names and admin add-item flow.
+- Member default issue chests are reused automatically when creating a death request, while the CTA role can be overridden per request.
 - Read-only member board showing the next CTA, assigned chest, and kit slots without member accounts.
 - Closed admin access: the first admin is bootstrapped by Gmail, then existing admins invite additional Gmail addresses.
 - Settings screen and responsive layout for smaller screens.
