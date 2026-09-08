@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
-import { deactivateMember, insertItem, insertMember, insertPlan, insertRegearRequest, loadWorkspace, markRequestRegeared, updateMemberChest as persistMemberChest } from './lib/regearData'
+import { deactivateMember, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateMemberChest as persistMemberChest } from './lib/regearData'
 
 const icons = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -219,7 +219,7 @@ function App() {
       {active === 'Daily regears' && <DailyRegears requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onMark={liveMarkRequestRegeared} onNotify={notify} />}
       {active === 'Members' && <MembersCasualty members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
       {active === 'Armory' && <ArmoryWithWeapons items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} />}
-      {active === 'Settings' && <SettingsLive onNotify={notify} session={session} />}
+      {active === 'Settings' && <SettingsAdmin onNotify={notify} session={session} guild={guild} />}
       {active === 'Member view' && <MemberViewLive onNotify={notify} />}
     </main>
     {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={liveAddMember} />}
@@ -410,6 +410,34 @@ function WeaponLibrary({ items, onAddWeapon }) {
 }
 
 function Settings({ onNotify }) { const [adminEmail, setAdminEmail] = useState(''); const [pendingInvites, setPendingInvites] = useState(['pending-admin@example.com']); const inviteAdmin = () => { const email = adminEmail.trim().toLowerCase(); if (!email.endsWith('@gmail.com')) { onNotify('Use a Gmail address for admin invites'); return } setPendingInvites((current) => [...current, email]); setAdminEmail(''); onNotify(`Invite sent to ${email}`) }; return <div className="page"><PageIntro eyebrow="Guild configuration" title="Settings" description="Control how your guild uses Albion Regear." /><section className="settings-grid"><div className="panel settings-nav"><button className="settings-link active">Guild profile</button><button className="settings-link">Regear defaults</button><button className="settings-link">Admin access</button><button className="settings-link">Notifications</button></div><div className="settings-stack"><div className="panel settings-form"><div className="form-section"><span className="eyebrow">Guild profile</span><h2>Make it yours</h2><p>This is how the operations room identifies your guild.</p><label>Guild name<input defaultValue="Coup De Grace" /></label><label>Server region<select defaultValue="Americas"><option>Americas</option><option>Europe</option><option>Asia</option></select></label><button className="button button-primary" onClick={() => onNotify('Guild profile saved')}>Save changes</button></div></div><div className="panel admin-access"><div className="admin-access-heading"><div><span className="eyebrow">Closed admin network</span><h2>Invite administrators</h2><p>Members never create accounts. Only an existing admin can invite a Gmail address.</p></div><span className="access-pill"><span />Invite only</span></div><div className="access-rule"><div><span>Bootstrap admin</span><strong>Configured during Supabase setup</strong></div><span className="status status-green">Owner</span></div><div className="invite-form"><label>Admin Gmail<input value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="you@example.com" /></label><button className="button button-primary" disabled={!adminEmail.trim()} onClick={inviteAdmin}><Icon name="plus" size={15} />Send invite</button></div><div className="pending-heading"><span>Pending invitations</span><small>{pendingInvites.length}</small></div><div className="pending-list">{pendingInvites.map((email) => <div className="pending-row" key={email}><span className="pending-avatar">@</span><strong>{email}</strong><span className="status status-ember">Awaiting signup</span></div>)}</div></div></div></section></div> }
+
+function SettingsAdmin({ onNotify, session, guild }) {
+  const [section, setSection] = useState('Guild profile')
+  const [adminEmail, setAdminEmail] = useState('')
+  const [inviteBusy, setInviteBusy] = useState(false)
+  const [invites, setInvites] = useState([])
+  const [inviteError, setInviteError] = useState('')
+  const sections = ['Guild profile', 'Regear defaults', 'Admin access', 'Notifications']
+  const refreshInvites = async () => {
+    if (!guild?.id) return
+    try { setInvites(await listAdminInvites(guild.id)); setInviteError('') } catch (error) { setInviteError(error.message || 'Could not load invitations.') }
+  }
+  useEffect(() => { refreshInvites() }, [guild?.id])
+  const saveInvite = async () => {
+    const email = adminEmail.trim().toLowerCase()
+    if (!email) return
+    setInviteBusy(true)
+    try {
+      const response = await fetch('/api/invite-admin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` }, body: JSON.stringify({ email }) })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Could not send the invitation.')
+      setAdminEmail('')
+      await refreshInvites()
+      onNotify(result.message || `Invitation sent to ${email}.`)
+    } catch (error) { onNotify(error.message || 'Could not send the invitation.') } finally { setInviteBusy(false) }
+  }
+  return <div className="page"><PageIntro eyebrow="Guild configuration" title="Settings" description="Keep the guild profile and access rules easy to find." /><section className="settings-grid"><div className="panel settings-nav">{sections.map((item) => <button type="button" className={`settings-link ${section === item ? 'active' : ''}`} key={item} onClick={() => setSection(item)}>{item}</button>)}</div><div className="settings-stack">{section === 'Guild profile' && <div className="panel settings-form"><div className="form-section"><span className="eyebrow">Guild profile</span><h2>Make it yours</h2><p>This is how the operations room identifies your guild.</p><label>Guild name<input defaultValue="Coup De Grace" /></label><label>Server region<select defaultValue="Asia"><option>Americas</option><option>Europe</option><option>Asia</option></select></label><button className="button button-primary" onClick={() => onNotify('Guild profile saved')}>Save changes</button></div></div>}{section === 'Regear defaults' && <div className="panel settings-form settings-info"><span className="eyebrow">Regear defaults</span><h2>Keep requests consistent</h2><p>Member default roles and issue chests are managed from Members. Death roles and replacement items are selected for each report.</p><div className="settings-info-row"><span>Available roles</span><strong>Tank · Support · Healer · DPS · Bomb · Caller</strong></div></div>}{section === 'Admin access' && <div className="panel settings-form settings-info"><span className="eyebrow">Closed admin network</span><h2>Invite an administrator</h2><p>Enter their email. Supabase sends an account setup link so they can create a password and sign in.</p><label>Admin email<input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="admin@gmail.com" /></label><button className="button button-primary" disabled={!adminEmail.trim() || inviteBusy} onClick={saveInvite}><Icon name="plus" size={15} />{inviteBusy ? 'Sending...' : 'Send invitation'}</button><small className="field-help">The invited account is linked to Coup De Grace automatically.</small><div className="pending-heading"><span>Pending invitations</span><small>{invites.length}</small></div>{inviteError && <div className="auth-error" role="alert">{inviteError}</div>}<div className="pending-list">{invites.map((invite) => { const expired = invite.expires_at && new Date(invite.expires_at).getTime() < Date.now(); return <div className="pending-row" key={invite.id}><span className="pending-avatar">@</span><div className="pending-copy"><strong>{invite.email}</strong><small>Sent {new Date(invite.created_at).toLocaleDateString()} · Expires {new Date(invite.expires_at).toLocaleDateString()}</small></div><span className={`status status-${expired ? 'ember' : 'green'}`}>{expired ? 'Expired' : 'Invitation sent'}</span></div> })}{!invites.length && !inviteError && <span className="suggestion-empty">No invitations sent yet.</span>}</div></div>}{section === 'Notifications' && <div className="panel settings-form settings-info"><span className="eyebrow">Notifications</span><h2>Choose what needs attention</h2><label className="setting-check"><input type="checkbox" defaultChecked /> Open regear reminders</label><label className="setting-check"><input type="checkbox" defaultChecked /> Low armory stock warnings</label><button className="button button-primary" onClick={() => onNotify('Notification preferences saved')}>Save preferences</button></div>}</div></section></div>
+}
 
 function SettingsLive({ onNotify, session }) {
   const [section, setSection] = useState('Guild profile')

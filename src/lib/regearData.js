@@ -214,6 +214,16 @@ export async function markRequestRegeared(guildId, requestId) {
   return regearedAt
 }
 
+export async function listAdminInvites(guildId) {
+  const { data, error } = await supabase
+    .from('admin_invites')
+    .select('id, email, created_at, expires_at, accepted_at')
+    .eq('guild_id', guildId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
 export async function insertPlan(guildId, plan) {
   const { data, error } = await supabase.from('regear_plans').insert({
     guild_id: guildId,
