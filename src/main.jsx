@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
+import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
+import { insertItem, insertMember, insertRegearRequest, loadWorkspace, markRequestRegeared, updateItemChest as persistItemChest, updateMemberChest as persistMemberChest } from './lib/regearData'
 
 const icons = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -59,6 +61,12 @@ function App() {
   const [items, setItems] = useState(initialItems)
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState('')
+  const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured)
+  const [dataLoading, setDataLoading] = useState(false)
+  const [liveError, setLiveError] = useState('')
+  const [guild, setGuild] = useState(null)
+  const [publicView, setPublicView] = useState(false)
 
   const filteredMembers = useMemo(() => members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.role.toLowerCase().includes(query.toLowerCase())), [members, query])
   const notify = (message) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
@@ -69,26 +77,156 @@ function App() {
   const addItem = (item) => { setItems((current) => current.some((existing) => existing.name.toLowerCase() === item.name.toLowerCase()) ? current : [...current, item]); setShowItemModal(false); notify(`${item.name} added to the item catalog`) }
   const addCatalogItem = (name) => { const item = { name, category: 'Custom', chest: 'Unassigned', stock: '0 / 0', percentage: 0, tone: 'low' }; setItems((current) => current.some((existing) => existing.name.toLowerCase() === name.toLowerCase()) ? current : [...current, item]); notify(`${name} added to the item catalog`); return item }
 
+  const live = Boolean(isSupabaseConfigured && session && guild)
+
+  useEffect(() => {
+    if (!supabase) { setAuthLoading(false); return undefined }
+    let mounted = true
+    supabase.auth.getSession().then(({ data }) => { if (mounted) { setSession(data.session); setAuthLoading(false) } })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => { setSession(nextSession); setAuthLoading(false) })
+    return () => { mounted = false; subscription.unsubscribe() }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase || !session) return undefined
+    let mounted = true
+    setDataLoading(true)
+    setLiveError('')
+    loadWorkspace().then((workspace) => {
+      if (!mounted) return
+      setGuild(workspace.guild)
+      setMembers(workspace.members)
+      setItems(workspace.items)
+    }).catch((error) => {
+      if (mounted) setLiveError(error.message || 'Supabase could not load the guild workspace.')
+    }).finally(() => { if (mounted) setDataLoading(false) })
+    return () => { mounted = false }
+  }, [session])
+
+  const liveMarkRegeared = async (name) => {
+    const member = members.find((entry) => entry.name === name)
+    try {
+      if (live && member?.requestId) await markRequestRegeared(guild.id, member.requestId)
+      setMembers((current) => current.map((entry) => entry.name === name ? { ...entry, status: 'Ready', last: 'Just now', issuedBy: session?.user?.email || 'Administrator' } : entry))
+      notify(`${name} marked as regeared`)
+    } catch (error) { notify(error.message || 'Could not update the regear request') }
+  }
+
+  const liveReportDeath = async ({ memberId, memberName, note, chest, role, items: requestedItems }) => {
+    try {
+      let requestId
+      if (live) {
+        const created = await insertRegearRequest(guild.id, { memberId, memberName, note, chest, role, items: requestedItems.map((item) => typeof item === 'string' ? { name: item, category: 'Custom' } : item) })
+        requestId = created.id
+      }
+      setMembers((current) => current.map((member) => member.name === memberName ? { ...member, status: 'Open regear', last: 'Open regear Â· just now', issuedBy: 'Unassigned', deathNote: note, chest, regearRole: role, regearItems: requestedItems.map((item) => item.name), requestId } : member))
+      setShowDeathModal(false)
+      notify(`${memberName} added to the regear queue`)
+    } catch (error) { notify(error.message || 'Could not create the regear request') }
+  }
+
+  const liveUpdateMemberChest = async (name, chest) => {
+    const nextChest = chest.trim() || 'Unassigned'
+    const member = members.find((entry) => entry.name === name)
+    try {
+      if (live && member?.id) await persistMemberChest(guild.id, member.id, nextChest)
+      setMembers((current) => current.map((entry) => entry.name === name ? { ...entry, chest: nextChest } : entry))
+      notify(`${name}'s issue chest updated to ${nextChest}`)
+    } catch (error) { notify(error.message || 'Could not update the issue chest') }
+  }
+
+  const liveUpdateItemChest = async (name, chest) => {
+    const nextChest = chest.trim() || 'Unassigned'
+    const item = items.find((entry) => entry.name === name)
+    try {
+      if (live && item?.id) await persistItemChest(guild.id, item.id, nextChest)
+      setItems((current) => current.map((entry) => entry.name === name ? { ...entry, chest: nextChest } : entry))
+      notify(`${name} moved to ${nextChest}`)
+    } catch (error) { notify(error.message || 'Could not update the item chest') }
+  }
+
+  const liveAddItem = async (item) => {
+    try {
+      const saved = live ? await insertItem(guild.id, item) : item
+      setItems((current) => current.some((existing) => existing.name.toLowerCase() === saved.name.toLowerCase()) ? current : [...current, saved])
+      setShowItemModal(false)
+      notify(`${saved.name} added to the item catalog`)
+      return saved
+    } catch (error) { notify(error.message || 'Could not add the item'); return null }
+  }
+
+  const liveAddCatalogItem = (name) => {
+    const existing = items.find((item) => item.name.toLowerCase() === name.toLowerCase())
+    if (existing) return existing
+    const item = { name, category: 'Custom', chest: 'Unassigned', stock: '0 / 0', quantity: 0, minimumQuantity: 0, percentage: 0, tone: 'low' }
+    setItems((current) => [...current, item])
+    if (live) insertItem(guild.id, item).then((saved) => setItems((current) => current.map((entry) => entry.name === name ? saved : entry))).catch((error) => notify(error.message || 'Could not save the item'))
+    notify(`${name} added to the item catalog`)
+    return item
+  }
+
+  const liveAddMember = async (member) => {
+    try {
+      const saved = live ? await insertMember(guild.id, member) : member
+      setMembers((current) => [...current, saved])
+      setShowMemberModal(false)
+      notify(`${saved.name} added to roster`)
+    } catch (error) { notify(error.message || 'Could not add the member') }
+  }
+
+  if (isSupabaseConfigured && authLoading) return <LoadingScreen text="Checking admin access..." />
+  if (isSupabaseConfigured && !session) return publicView ? <PublicMemberShell onAdminLogin={() => setPublicView(false)} /> : <AuthGate onMemberView={() => setPublicView(true)} />
+  if (isSupabaseConfigured && session && (dataLoading || (!guild && !liveError))) return <LoadingScreen text="Loading Coup De Grace workspace..." />
+  if (isSupabaseConfigured && session && liveError && !guild) return <ConnectionError message={liveError} onSignOut={() => supabase.auth.signOut()} />
+
   return <div className="app-shell">
-    <Sidebar active={active} onNavigate={setActive} />
+    <Sidebar active={active} onNavigate={setActive} userEmail={session?.user?.email} onSignOut={() => supabase?.auth.signOut()} />
     <main className="main-content">
       <Topbar query={query} setQuery={setQuery} onNotify={notify} />
-      {active === 'Dashboard' && <Dashboard members={members} onOpenMember={() => setShowMemberModal(true)} onOpenPlan={() => setShowPlanModal(true)} onOpenDeath={() => setShowDeathModal(true)} onNavigate={setActive} onMark={markRegeared} />}
-      {active === 'CTA events' && <Plans onOpenPlan={() => setShowPlanModal(true)} onMark={markRegeared} />}
-      {active === 'Members' && <Members members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={markRegeared} onUpdateChest={updateMemberChest} />}
-      {active === 'Armory' && <Armory items={items} onNotify={notify} onAddItem={() => setShowItemModal(true)} onUpdateChest={updateItemChest} />}
+      {active === 'Dashboard' && <Dashboard members={members} onOpenMember={() => setShowMemberModal(true)} onOpenPlan={() => setShowPlanModal(true)} onOpenDeath={() => setShowDeathModal(true)} onNavigate={setActive} onMark={liveMarkRegeared} />}
+      {active === 'CTA events' && <Plans onOpenPlan={() => setShowPlanModal(true)} onMark={liveMarkRegeared} />}
+      {active === 'Members' && <Members members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} />}
+      {active === 'Armory' && <Armory items={items} onNotify={notify} onAddItem={() => setShowItemModal(true)} onUpdateChest={liveUpdateItemChest} />}
       {active === 'Settings' && <Settings onNotify={notify} />}
       {active === 'Member view' && <MemberView />}
     </main>
-    {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={(member) => { setMembers((current) => [...current, member]); setShowMemberModal(false); notify(`${member.name} added to roster`) }} />}
+    {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={liveAddMember} />}
     {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} onSave={(plan) => { setShowPlanModal(false); notify(`${plan.name} created · ${plan.budget} silver budget`) }} />}
-    {showDeathModal && <DeathModal members={members} items={items} onAddItem={addCatalogItem} onClose={() => setShowDeathModal(false)} onSave={reportDeath} />}
-    {showItemModal && <ItemModal onClose={() => setShowItemModal(false)} onSave={addItem} />}
+    {showDeathModal && <DeathModal members={members} items={items} onAddItem={liveAddCatalogItem} onClose={() => setShowDeathModal(false)} onSave={(payload) => liveReportDeath({ ...payload, items: payload.items.map((item) => items.find((entry) => entry.name === item) || { name: item, category: 'Custom' }) })} />}
+    {showItemModal && <ItemModal onClose={() => setShowItemModal(false)} onSave={liveAddItem} />}
     {toast && <div className="toast"><span className="toast-dot" />{toast}</div>}
   </div>
 }
 
-function Sidebar({ active, onNavigate }) {
+function LoadingScreen({ text }) {
+  return <div className="auth-shell"><div className="auth-card loading-card"><div className="brand-mark">A<span>R</span></div><span className="eyebrow">Coup De Grace</span><h1>{text}</h1><div className="loading-line" /></div></div>
+}
+
+function AuthGate({ onMemberView }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const signIn = async (event) => {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    if (signInError) setError(signInError.message)
+    setBusy(false)
+  }
+  return <div className="auth-shell"><div className="auth-card"><div className="auth-brand"><div className="brand-mark">A<span>R</span></div><div><strong>Albion <em>Regear</em></strong><small>COUP DE GRACE</small></div></div><span className="eyebrow">Administrator access</span><h1>Welcome back.</h1><p>Sign in with an invited administrator account to open the operations room.</p><form onSubmit={signIn} className="auth-form"><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@gmail.com" autoComplete="email" required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Your password" autoComplete="current-password" required /></label>{error && <div className="auth-error">{error}</div>}<button className="button button-primary auth-submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in to dashboard'}</button></form><button className="public-entry" onClick={onMemberView}><Icon name="eye" size={15} />Continue to member view</button><small className="auth-note">Admin accounts are invite-only. Members do not need accounts.</small></div></div>
+}
+
+function PublicMemberShell({ onAdminLogin }) {
+  return <div className="public-shell"><button className="public-admin-link" onClick={onAdminLogin}>Administrator sign in <Icon name="arrow" size={14} /></button><MemberView /></div>
+}
+
+function ConnectionError({ message, onSignOut }) {
+  return <div className="auth-shell"><div className="auth-card"><div className="brand-mark">A<span>R</span></div><span className="eyebrow">Supabase connection</span><h1>Workspace not ready.</h1><p>{message}</p><div className="auth-error">Check that the schema and <code>supabase/policies.sql</code> have both been run, and that this Auth user is present in <code>guild_admins</code>.</div><div className="modal-footer"><button className="button button-ghost" onClick={onSignOut}>Sign out</button><button className="button button-primary" onClick={() => window.location.reload()}>Try again</button></div></div></div>
+}
+
+function Sidebar({ active, onNavigate, userEmail, onSignOut }) {
   const nav = [['Dashboard', 'grid'], ['CTA events', 'plan'], ['Members', 'users'], ['Armory', 'box']]
   return <aside className="sidebar">
     <div className="brand"><div className="brand-mark">A<span>R</span></div><div><div className="brand-name">Albion <em>Regear</em></div><div className="brand-caption">COUP DE GRACE</div></div></div>

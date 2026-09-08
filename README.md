@@ -35,8 +35,9 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 ## Suggested next backend steps
 
 1. Run `supabase/schema.sql` in the Supabase SQL editor and set your private bootstrap Gmail on the guild row.
-2. Add Supabase Auth for admin accounts only.
-3. Replace the mock arrays in `src/main.jsx` with queries/mutations through a small data service.
-4. Add a public member view keyed by a one-time invite code, with no write permissions.
+2. Run `supabase/policies.sql` to allow linked administrators to access the private workspace through the browser client.
+3. Add the first Gmail admin in Supabase Auth, then link that Auth user in `public.guild_admins`.
+4. The app now loads members, items, and regear requests through Supabase and saves member chests, catalog items, and death reports.
+5. Add a public member view keyed by a one-time invite code, with no write permissions.
 
 The safest member flow is one public guild link with a private, expiring member invite code for personal kit details. Admins use Supabase Auth with the bootstrap Gmail address and invitation-only admin access; there is no public admin self-registration.
