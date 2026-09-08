@@ -54,6 +54,22 @@ export function toUiItem(row) {
   }
 }
 
+export function toUiPlan(row, requests = []) {
+  const planRequests = requests.filter((request) => request.cta_plan_id === row.id)
+  const closed = planRequests.filter((request) => request.status === 'regeared').length
+  const date = new Date(row.starts_at)
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: `${new Intl.DateTimeFormat('en', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }).format(date)} UTC`,
+    status: row.status === 'in_progress' ? 'In progress' : row.status === 'complete' ? 'Complete' : 'Upcoming',
+    progress: `${planRequests.length} deaths · ${closed} closed`,
+    cost: row.notes || 'No budget set',
+    date: `${new Intl.DateTimeFormat('en', { day: '2-digit', month: 'short', timeZone: 'UTC' }).format(date).toUpperCase()}`,
+    accent: row.status === 'complete' ? 'green' : row.status === 'in_progress' ? 'blue' : 'ember',
+  }
+}
+
 export async function loadWorkspace() {
   if (!supabase) throw new Error('Supabase is not configured')
 
@@ -65,19 +81,22 @@ export async function loadWorkspace() {
   if (guildError) throw guildError
   if (!guild) throw new Error('Coup De Grace was not found or this account is not linked as an admin yet.')
 
-  const [membersResult, itemsResult, requestsResult] = await Promise.all([
+  const [membersResult, itemsResult, requestsResult, plansResult] = await Promise.all([
     supabase.from('members').select('*').eq('guild_id', guild.id).eq('active', true).order('character_name'),
     supabase.from('items').select('*, chests(label)').eq('guild_id', guild.id).order('name'),
     supabase.from('regear_requests').select('*').eq('guild_id', guild.id).order('created_at', { ascending: false }),
+    supabase.from('regear_plans').select('*').eq('guild_id', guild.id).order('starts_at'),
   ])
   if (membersResult.error) throw membersResult.error
   if (itemsResult.error) throw itemsResult.error
   if (requestsResult.error) throw requestsResult.error
+  if (plansResult.error) throw plansResult.error
 
   return {
     guild,
     members: membersResult.data.map((row) => toUiMember(row, requestsResult.data, guild.name)),
     items: itemsResult.data.map(toUiItem),
+    plans: plansResult.data.map((row) => toUiPlan(row, requestsResult.data)),
   }
 }
 
@@ -118,22 +137,21 @@ export async function updateMemberChest(guildId, memberId, chest) {
   if (error) throw error
 }
 
+export async function deactivateMember(guildId, memberId) {
+  const { error } = await supabase.from('members').update({ active: false }).eq('id', memberId).eq('guild_id', guildId)
+  if (error) throw error
+}
+
 export async function insertItem(guildId, item) {
   const { data, error } = await supabase.from('items').insert({
     guild_id: guildId,
     name: item.name,
     category: item.category,
-    chest_id: await chestIdFor(guildId, item.chest),
     quantity: Number(item.quantity || 0),
     minimum_quantity: Number(item.minimumQuantity || 0),
   }).select('*, chests(label)').single()
   if (error) throw error
   return toUiItem(data)
-}
-
-export async function updateItemChest(guildId, itemId, chest) {
-  const { error } = await supabase.from('items').update({ chest_id: await chestIdFor(guildId, chest) }).eq('id', itemId).eq('guild_id', guildId)
-  if (error) throw error
 }
 
 function itemSlots(items = []) {
@@ -167,4 +185,16 @@ export async function markRequestRegeared(guildId, requestId) {
     regeared_at: new Date().toISOString(),
   }).eq('id', requestId).eq('guild_id', guildId)
   if (error) throw error
+}
+
+export async function insertPlan(guildId, plan) {
+  const { data, error } = await supabase.from('regear_plans').insert({
+    guild_id: guildId,
+    title: plan.name,
+    starts_at: plan.startsAt || new Date().toISOString(),
+    status: 'upcoming',
+    notes: plan.budget ? `${plan.budget} silver budget` : null,
+  }).select('*').single()
+  if (error) throw error
+  return toUiPlan(data)
 }
