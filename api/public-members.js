@@ -18,14 +18,32 @@ export default async function handler(req, res) {
 
   const [membersResult, requestsResult] = await Promise.all([
     admin.from('members').select('id, character_name, role, issue_chest').eq('guild_id', guild.id).eq('active', true).order('character_name'),
-    admin.from('regear_requests').select('member_id, status, died_at, regeared_at, created_at').eq('guild_id', guild.id).order('created_at', { ascending: false }),
+    admin.from('regear_requests').select('id, member_id, status, role, died_at, death_note, issue_chest, weapon, off_hand, helmet, armor, boots, regeared_at, regeared_by_name, created_at').eq('guild_id', guild.id).order('created_at', { ascending: false }),
   ])
   if (membersResult.error) return res.status(500).json({ error: membersResult.error.message })
   if (requestsResult.error) return res.status(500).json({ error: requestsResult.error.message })
 
   const latestRequests = new Map()
+  const requestHistory = new Map()
   for (const request of requestsResult.data || []) {
     if (!latestRequests.has(request.member_id)) latestRequests.set(request.member_id, request)
+    const history = requestHistory.get(request.member_id) || []
+    history.push({
+      id: request.id,
+      status: request.status,
+      role: request.role,
+      diedAt: request.died_at || request.created_at,
+      deathNote: request.death_note || '',
+      chest: request.issue_chest || 'Unassigned',
+      weapon: request.weapon || '',
+      offHand: request.off_hand || '',
+      helmet: request.helmet || '',
+      armor: request.armor || '',
+      boots: request.boots || '',
+      regearedAt: request.regeared_at || null,
+      regearedBy: request.regeared_by_name || '',
+    })
+    requestHistory.set(request.member_id, history)
   }
 
   const members = (membersResult.data || []).map((member) => {
@@ -38,6 +56,7 @@ export default async function handler(req, res) {
       status: request?.status === 'regeared' ? 'regeared' : request ? 'open' : 'none',
       diedAt: request?.died_at || null,
       regearedAt: request?.regeared_at || null,
+      history: requestHistory.get(member.id) || [],
     }
   }).sort((first, second) => {
     const firstChest = String(first.chest || '').match(/\d+/)
