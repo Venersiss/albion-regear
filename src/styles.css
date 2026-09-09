@@ -136,6 +136,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 @media (max-width: 520px) {
   .daily-status-tab { padding: 0 10px; font-size: 8px; }
 }
+
+@media (max-width: 820px) {
+  /* Fixed image backgrounds can hitch during touch scrolling on mobile. */
+  .app-shell { background-attachment: scroll; }
+}
 .logout-button { margin-left: auto; border: 0; background: transparent; color: #c48a6c; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
 .logout-button:hover { color: #f0b6a7; }
 .daily-layout { display: grid; grid-template-columns: 245px minmax(0, 1fr); gap: 18px; align-items: start; }
