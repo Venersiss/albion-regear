@@ -602,12 +602,34 @@ function AdminSettings({ onNotify, session, guild }) {
   const [inviteBusy, setInviteBusy] = useState(false)
   const [invites, setInvites] = useState([])
   const [inviteError, setInviteError] = useState('')
-  const sections = ['Guild profile', 'Regear defaults', 'Admin access', 'Notifications']
+  const [admins, setAdmins] = useState([])
+  const [adminsLoading, setAdminsLoading] = useState(false)
+  const [adminsError, setAdminsError] = useState('')
+  const sections = ['Guild profile', 'Administrators', 'Admin access', 'Notifications']
   const refreshInvites = async () => {
     if (!guild?.id) return
     try { setInvites(await listAdminInvites(guild.id, session?.access_token)); setInviteError('') } catch (error) { setInviteError(error.message || 'Could not load invitations.') }
   }
   useEffect(() => { if (section === 'Admin access') refreshInvites() }, [guild?.id, section])
+  const refreshAdmins = async () => {
+    if (!guild?.id || !session?.access_token) return
+    setAdminsLoading(true)
+    try {
+      const response = await fetch('/api/admin-directory', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Could not load administrators.')
+      setAdmins(result.admins || [])
+      setAdminsError('')
+    } catch (error) { setAdminsError(error.message || 'Could not load administrators.') } finally { setAdminsLoading(false) }
+  }
+  useEffect(() => { if (section === 'Administrators') refreshAdmins() }, [guild?.id, session?.access_token, section])
+  useEffect(() => {
+    if (!guild?.id || !session?.access_token) return undefined
+    const heartbeat = () => { fetch('/api/admin-directory', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {}) }
+    heartbeat()
+    const interval = window.setInterval(heartbeat, 60 * 1000)
+    return () => window.clearInterval(interval)
+  }, [guild?.id, session?.access_token])
   const sendInvite = async () => {
     const email = adminEmail.trim().toLowerCase()
     if (!email) return
@@ -632,7 +654,18 @@ function AdminSettings({ onNotify, session, guild }) {
       onNotify(result.message || 'Invitation canceled.')
     } catch (error) { onNotify(error.message || 'Could not cancel the invitation.') }
   }
-  return <div className="page"><PageIntro eyebrow="Guild configuration" title="Settings" description="Keep the guild profile and access rules easy to find." /><section className="settings-grid"><div className="panel settings-nav">{sections.map((item) => <button type="button" className={`settings-link ${section === item ? 'active' : ''}`} key={item} onClick={() => setSection(item)}>{item}</button>)}</div><div className="settings-stack">{section === 'Guild profile' && <div className="panel settings-form"><div className="form-section"><span className="eyebrow">Guild profile</span><h2>Make it yours</h2><p>This is how the operations room identifies your guild.</p><label>Guild name<input defaultValue="Coup De Grace" /></label><label>Server region<select defaultValue="Asia"><option>Americas</option><option>Europe</option><option>Asia</option></select></label><button className="button button-primary" onClick={() => onNotify('Guild profile saved')}>Save changes</button></div></div>}{section === 'Regear defaults' && <div className="panel settings-form settings-info"><span className="eyebrow">Regear defaults</span><h2>Keep requests consistent</h2><p>Member default roles and issue chests are managed from Members. Death roles and replacement items are selected for each report.</p><div className="settings-info-row"><span>Available roles</span><strong>Tank · Support · Healer · DPS · Bomb · Caller</strong></div></div>}{section === 'Admin access' && <AdminInvitePanel invites={invites} inviteError={inviteError} adminEmail={adminEmail} setAdminEmail={setAdminEmail} inviteBusy={inviteBusy} onSend={sendInvite} onCancel={cancelInvite} />}{section === 'Notifications' && <div className="panel settings-form settings-info"><span className="eyebrow">Notifications</span><h2>Choose what needs attention</h2><label className="setting-check"><input type="checkbox" defaultChecked /> Open regear reminders</label><label className="setting-check"><input type="checkbox" defaultChecked /> Low armory stock warnings</label><button className="button button-primary" onClick={() => onNotify('Notification preferences saved')}>Save preferences</button></div>}</div></section></div>
+  return <div className="page"><PageIntro eyebrow="Guild configuration" title="Settings" description="Keep the guild profile and access rules easy to find." /><section className="settings-grid"><div className="panel settings-nav">{sections.map((item) => <button type="button" className={`settings-link ${section === item ? 'active' : ''}`} key={item} onClick={() => setSection(item)}>{item}</button>)}</div><div className="settings-stack">{section === 'Guild profile' && <div className="panel settings-form"><div className="form-section"><span className="eyebrow">Guild profile</span><h2>Make it yours</h2><p>This is how the operations room identifies your guild.</p><label>Guild name<input defaultValue="Coup De Grace" /></label><label>Server region<select defaultValue="Asia"><option>Americas</option><option>Europe</option><option>Asia</option></select></label><button className="button button-primary" onClick={() => onNotify('Guild profile saved')}>Save changes</button></div></div>}{section === 'Administrators' && <AdminDirectory admins={admins} loading={adminsLoading} error={adminsError} onRefresh={refreshAdmins} />}{section === 'Admin access' && <AdminInvitePanel invites={invites} inviteError={inviteError} adminEmail={adminEmail} setAdminEmail={setAdminEmail} inviteBusy={inviteBusy} onSend={sendInvite} onCancel={cancelInvite} />}{section === 'Notifications' && <div className="panel settings-form settings-info"><span className="eyebrow">Notifications</span><h2>Choose what needs attention</h2><label className="setting-check"><input type="checkbox" defaultChecked /> Open regear reminders</label><label className="setting-check"><input type="checkbox" defaultChecked /> Low armory stock warnings</label><button className="button button-primary" onClick={() => onNotify('Notification preferences saved')}>Save preferences</button></div>}</div></section></div>
+}
+
+function AdminDirectory({ admins, loading, error, onRefresh }) {
+  const onlineCount = admins.filter((admin) => admin.online).length
+  const formatSeen = (value) => {
+    if (!value) return 'No recent activity'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return 'No recent activity'
+    return `Last seen ${date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+  }
+  return <div className="panel settings-form settings-info admin-directory"><div className="admin-directory-heading"><div><span className="eyebrow">Team presence</span><h2>Guild administrators</h2><p>See who can manage Coup De Grace regear records. Presence updates while an administrator has the app open.</p></div><button type="button" className="button button-ghost admin-directory-refresh" onClick={onRefresh} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh list'}</button></div><div className="admin-presence-summary"><div><strong>{onlineCount}</strong><span>Online now</span></div><div><strong>{admins.length}</strong><span>Linked admins</span></div><span className="admin-presence-note"><i /> Online updates every minute</span></div>{loading && !admins.length && <div className="admin-directory-empty"><div className="public-loader" /><strong>Loading administrators...</strong></div>}{!loading && error && <div className="admin-directory-error" role="alert"><strong>Administrator list unavailable</strong><span>{error}</span><button type="button" className="button button-ghost" onClick={onRefresh}>Try again</button></div>}{!error && admins.length > 0 && <div className="admin-directory-list">{admins.map((admin) => <div className="admin-directory-row" key={admin.id}><div className="admin-directory-avatar">{admin.username?.[0]?.toUpperCase() || 'A'}</div><div className="admin-directory-copy"><strong>{admin.username}{admin.isCurrent && <span className="admin-you">You</span>}</strong><span>{admin.email}</span><small>{admin.online ? 'Active now' : formatSeen(admin.lastSeenAt)}</small></div><span className={`admin-presence-status ${admin.online ? 'online' : 'offline'}`}><i />{admin.online ? 'Online' : 'Offline'}</span></div>)}</div>}{!loading && !error && !admins.length && <div className="admin-directory-empty"><span className="public-result-icon"><Icon name="users" size={18} /></span><strong>No linked administrators found</strong><span>Invite an administrator from the Admin access section.</span></div>}<small className="field-help admin-directory-help">Offline means the administrator has not been seen in the last three minutes. The current session is always shown as online.</small></div>
 }
 
 function AdminInvitePanel({ invites, inviteError, adminEmail, setAdminEmail, inviteBusy, onSend, onCancel }) {

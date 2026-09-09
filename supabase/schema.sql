@@ -20,6 +20,16 @@ create table if not exists public.guild_admins (
   primary key (guild_id, user_id)
 );
 
+create table if not exists public.admin_presence (
+  guild_id uuid not null references public.guilds(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  last_seen_at timestamptz not null default now(),
+  primary key (guild_id, user_id)
+);
+
+create index if not exists admin_presence_last_seen_idx
+  on public.admin_presence(guild_id, last_seen_at desc);
+
 create table if not exists public.admin_invites (
   id uuid primary key default gen_random_uuid(),
   guild_id uuid not null references public.guilds(id) on delete cascade,
@@ -162,6 +172,7 @@ create index if not exists plans_guild_id_starts_at_idx on public.regear_plans(g
 -- and a public member lookup/invite code in the next integration pass.
 alter table public.guilds enable row level security;
 alter table public.guild_admins enable row level security;
+alter table public.admin_presence enable row level security;
 alter table public.admin_invites enable row level security;
 alter table public.members enable row level security;
 alter table public.chests enable row level security;

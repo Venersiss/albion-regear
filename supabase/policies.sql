@@ -28,6 +28,11 @@ create policy guild_admins_can_read_membership
 on public.guild_admins for select to authenticated
 using (user_id = auth.uid() or public.is_guild_admin(guild_id));
 
+create policy guild_admins_manage_presence
+on public.admin_presence for all to authenticated
+using (public.is_guild_admin(guild_id))
+with check (public.is_guild_admin(guild_id));
+
 create policy guild_admins_manage_members
 on public.members for all to authenticated
 using (public.is_guild_admin(guild_id))
