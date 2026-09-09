@@ -37,6 +37,17 @@ const initialItems = [
 
 const roleOptions = ['Tank', 'Support', 'Healer', 'DPS', 'Bomb', 'Caller']
 
+function chestNumberFor(value) {
+  const match = String(value || '').match(/\d+/)
+  return match ? Number(match[0]) : Number.POSITIVE_INFINITY
+}
+
+function compareMembersByChest(first, second) {
+  const chestDifference = chestNumberFor(first.chest) - chestNumberFor(second.chest)
+  if (chestDifference !== 0) return chestDifference
+  return (first.name || '').localeCompare(second.name || '', undefined, { numeric: true, sensitivity: 'base' })
+}
+
 const initialMembers = [
   { name: 'Kestrel', role: 'Caller', guild: 'Coup De Grace', avatar: 'K', tone: 'violet', status: 'Ready', chest: 'C-04', last: 'Today, 08:42', issuedBy: 'Jasper D.' },
   { name: 'Mirael', role: 'Support', guild: 'Coup De Grace', avatar: 'M', tone: 'blue', status: 'Open regear', chest: 'C-07', last: 'Yesterday, 22:10', issuedBy: 'Jasper D.', deathNote: 'Fell in Roads · yesterday, 22:10' },
@@ -75,7 +86,7 @@ function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [invitePending, setInvitePending] = useState(() => typeof window !== 'undefined' && window.location.hash.includes('type=invite'))
 
-  const filteredMembers = useMemo(() => members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.role.toLowerCase().includes(query.toLowerCase())), [members, query])
+  const filteredMembers = useMemo(() => members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.role.toLowerCase().includes(query.toLowerCase())).sort(compareMembersByChest), [members, query])
   const notify = (message) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
   const markRegeared = (name) => { setMembers((current) => current.map((member) => member.name === name ? { ...member, status: 'Ready', last: 'Just now', issuedBy: 'Jasper D.' } : member)); notify(`${name} marked as regeared`) }
   const reportDeath = ({ memberName, note, chest, role, items: requestedItems }) => { setMembers((current) => current.map((member) => member.name === memberName ? { ...member, status: 'Open regear', last: 'Open regear · just now', issuedBy: 'Unassigned', deathNote: note, chest, regearRole: role, regearItems: requestedItems } : member)); setShowDeathModal(false); notify(`${memberName} added to the regear queue`) }
@@ -683,7 +694,7 @@ function MemberViewLive({ members = [], loading = false, error = '' }) {
   const normalizedQuery = query.trim().toLowerCase()
   const matches = useMemo(() => {
     if (!normalizedQuery) return []
-    return members.filter((member) => member.name?.toLowerCase().includes(normalizedQuery)).slice(0, 8)
+    return members.filter((member) => member.name?.toLowerCase().includes(normalizedQuery)).sort(compareMembersByChest).slice(0, 8)
   }, [members, normalizedQuery])
 
   return <main className="public-member-page"><div className="public-member-hero"><span className="public-kicker"><span className="public-kicker-dot" />Coup De Grace · member access</span><h1>Find your issue chest.</h1><p>Search your Albion name to see where your regear is stored and whether your latest death report has been completed.</p><label className="public-roster-search"><Icon name="search" size={20} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your character name..." aria-label="Search your character name" /><kbd>⌕</kbd></label><div className="public-search-hint"><span>Members do not need an account</span><span>{members.length ? `${members.length} active members` : 'Live guild roster'}</span></div></div><section className="public-member-results" aria-live="polite">{loading && <div className="public-result-message"><div className="public-loader" /><strong>Loading the guild roster...</strong><span>Connecting to Coup De Grace member records.</span></div>}{!loading && error && <div className="public-result-message public-result-error"><span className="public-result-icon"><Icon name="close" size={18} /></span><strong>Roster unavailable</strong><span>{error}</span><button type="button" className="button button-ghost" onClick={() => window.location.reload()}>Try again</button></div>}{!loading && !error && !normalizedQuery && <div className="public-result-message public-result-empty"><span className="public-result-icon"><Icon name="users" size={18} /></span><strong>Search for your character</strong><span>Type your IGN above to view your assigned chest and latest regear status.</span></div>}{!loading && !error && normalizedQuery && !matches.length && <div className="public-result-message public-result-empty"><span className="public-result-icon"><Icon name="search" size={18} /></span><strong>No member found</strong><span>Check the spelling of your Albion character name or ask an administrator to add you.</span></div>}{!loading && !error && matches.length > 0 && <div className="public-result-list">{matches.map((member) => <PublicMemberResult key={member.id || member.name} member={member} />)}</div>}</section><div className="public-member-footer"><span><Icon name="eye" size={14} /> Read-only member lookup</span><span>Only administrators can edit regear records.</span></div></main>

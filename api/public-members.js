@@ -39,6 +39,11 @@ export default async function handler(req, res) {
       diedAt: request?.died_at || null,
       regearedAt: request?.regeared_at || null,
     }
+  }).sort((first, second) => {
+    const firstChest = String(first.chest || '').match(/\d+/)
+    const secondChest = String(second.chest || '').match(/\d+/)
+    const chestDifference = (firstChest ? Number(firstChest[0]) : Number.POSITIVE_INFINITY) - (secondChest ? Number(secondChest[0]) : Number.POSITIVE_INFINITY)
+    return chestDifference || first.name.localeCompare(second.name, undefined, { numeric: true, sensitivity: 'base' })
   })
 
   res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120')
