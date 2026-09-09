@@ -502,6 +502,7 @@ function AdminSettings({ onNotify, session, guild }) {
     const email = adminEmail.trim().toLowerCase()
     if (!email) return
     setInviteBusy(true)
+    setInviteError('')
     try {
       const response = await fetch('/api/invite-admin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` }, body: JSON.stringify({ email }) })
       const result = await response.json().catch(() => ({}))
@@ -509,7 +510,7 @@ function AdminSettings({ onNotify, session, guild }) {
       setAdminEmail('')
       await refreshInvites()
       onNotify(result.message || `Invitation sent to ${email}.`)
-    } catch (error) { onNotify(error.message || 'Could not send the invitation.') } finally { setInviteBusy(false) }
+    } catch (error) { setInviteError(error.message || 'Could not send the invitation.'); onNotify(error.message || 'Could not send the invitation.') } finally { setInviteBusy(false) }
   }
   const cancelInvite = async (invite) => {
     if (!window.confirm(`Cancel the invitation for ${invite.email}?`)) return

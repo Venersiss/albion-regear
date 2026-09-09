@@ -31,7 +31,10 @@ export default async function handler(req, res) {
 
   const redirectTo = process.env.APP_URL || 'https://albion-regear.vercel.app'
   const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: `${redirectTo.replace(/\/$/, '')}/` })
-  if (inviteError) return res.status(400).json({ error: inviteError.message })
+  if (inviteError) {
+    const rateLimited = inviteError.status === 429 || /rate.?limit|too many|email limit/i.test(inviteError.message || '')
+    return res.status(rateLimited ? 429 : 400).json({ error: rateLimited ? 'Supabase email rate limit reached. Wait for the limit to reset or configure custom SMTP in Supabase Authentication settings before sending more invitations.' : inviteError.message })
+  }
 
   const invitedUser = inviteData.user
   const { error: linkError } = await admin.from('guild_admins').upsert({ guild_id: guild.id, user_id: invitedUser.id }, { onConflict: 'guild_id,user_id' })
