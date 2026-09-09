@@ -78,6 +78,7 @@ export function toUiRequest(row, members = []) {
     memberId: row.member_id,
     memberName: member?.character_name || 'Unknown member',
     role: row.role,
+    reportedBy: row.reported_by_name || '',
     diedAt: row.died_at || row.created_at,
     deathNote: row.death_note || '',
     chest: row.issue_chest || 'Unassigned',
@@ -148,7 +149,6 @@ export async function insertMember(guildId, member) {
   const { data, error } = await supabase.from('members').insert({
     guild_id: guildId,
     character_name: member.name,
-    role: member.role,
     issue_chest: member.chest || 'Unassigned',
     notes: member.notes || null,
   }).select('*').single()
@@ -211,6 +211,8 @@ export async function insertRegearRequest(guildId, request) {
   const { data, error } = await supabase.from('regear_requests').insert({
     guild_id: guildId,
     member_id: request.memberId,
+    reported_by: request.reportedBy || null,
+    reported_by_name: request.reportedByName || null,
     role: request.role,
     death_note: request.note,
     issue_chest: request.chest || 'Unassigned',

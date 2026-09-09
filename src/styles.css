@@ -671,3 +671,6 @@ body { font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   .notification-popover { animation: none; }
 }
+.member-card-details-single { grid-template-columns: minmax(0, 1fr); }
+.regear-entry-meta { flex-wrap: wrap; }
+.daily-request-section-closed .regear-entry-meta .regear-completion { color: #8eb491; }

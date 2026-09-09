@@ -155,6 +155,7 @@ create table if not exists public.regear_requests (
   member_id uuid not null references public.members(id) on delete cascade,
   cta_plan_id uuid references public.regear_plans(id) on delete set null,
   reported_by uuid references auth.users(id) on delete set null,
+  reported_by_name text,
   role text not null default 'DPS' check (role in ('Tank', 'Support', 'Healer', 'DPS', 'Bomb', 'Caller')),
   died_at timestamptz not null default now(),
   death_note text,
