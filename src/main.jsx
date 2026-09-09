@@ -342,7 +342,6 @@ function Sidebar({ active, onNavigate, userName, userEmail, onSignOut, mobileNav
     <div className="sidebar-rule" />
     <div className="nav-label">Workspace</div>
     <nav>{nav.map(([label, icon]) => <button key={label} className={`nav-item ${active === label ? 'active' : ''}`} onClick={() => onNavigate(label)}><Icon name={icon} size={17} /><span>{label}</span>{label === 'Daily regears' && ctaCount > 0 && <span className="nav-count">{ctaCount}</span>}</button>)}</nav>
-    <div className="sidebar-public"><div className="nav-label">Member access</div><button type="button" className={`nav-item ${active === 'Member view' ? 'active' : ''}`} onClick={() => onNavigate('Member view')}><Icon name="eye" size={17} /><span>Member view</span></button></div>
     <div className="sidebar-bottom">
       <div className="nav-label sidebar-system-label">System</div>
       <button type="button" className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => onNavigate('Settings')}><Icon name="settings" size={17} /><span>Settings</span></button>
