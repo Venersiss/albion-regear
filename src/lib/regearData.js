@@ -8,7 +8,7 @@ function toneFor(name = '') {
 
 function displayDate(value) {
   if (!value) return 'Not yet'
-  return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value)) + ' UTC'
 }
 
 function latestRequestFor(memberId, requests) {
@@ -62,7 +62,7 @@ export function toUiPlan(row, requests = []) {
   return {
     id: row.id,
     title: row.title,
-    subtitle: `${new Intl.DateTimeFormat('en', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }).format(date)} UTC`,
+    subtitle: `${new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }).format(date)} UTC`,
     status: row.status === 'in_progress' ? 'In progress' : row.status === 'complete' ? 'Complete' : 'Upcoming',
     progress: `${planRequests.length} deaths · ${closed} closed`,
     cost: row.notes || 'No budget set',
