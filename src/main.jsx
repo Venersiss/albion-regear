@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
-import { deactivateMember, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateMemberChest as persistMemberChest } from './lib/regearData'
+import { deactivateMember, deleteItem as removeItem, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateItem as persistItem, updateMemberChest as persistMemberChest } from './lib/regearData'
 
 const icons = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -21,6 +21,8 @@ const icons = {
   close: <><path d="M6 6l12 12M18 6 6 18"/></>,
   menu: <><path d="M4 6h16M4 12h16M4 18h16"/></>,
   eye: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></>,
+  edit: <><path d="m4 16.5-.8 3.3 3.3-.8L18.8 6.7a2.1 2.1 0 0 0-3-3L4 16.5Z"/><path d="m14.5 5.5 3 3"/></>,
+  trash: <><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></>,
 }
 
 function Icon({ name, size = 18, className = '' }) {
@@ -71,6 +73,7 @@ function App() {
   const [showDeathModal, setShowDeathModal] = useState(false)
   const [showItemModal, setShowItemModal] = useState(false)
   const [itemModalCategory, setItemModalCategory] = useState('Weapon')
+  const [editingItem, setEditingItem] = useState(null)
   const [deathModalDate, setDeathModalDate] = useState(dayKey(new Date()))
   const [items, setItems] = useState(initialItems)
   const [regearRequests, setRegearRequests] = useState([])
@@ -143,7 +146,8 @@ function App() {
     } catch (error) { notify(error.message || 'Could not update the regear request') }
   }
 
-  const openItemCatalog = (category = 'Weapon') => { setItemModalCategory(category); setShowItemModal(true); setShowDeathModal(false); navigate('Armory') }
+  const openItemCatalog = (category = 'Weapon') => { setItemModalCategory(category); setEditingItem(null); setShowItemModal(true); setShowDeathModal(false); navigate('Armory') }
+  const openItemEditor = (item) => { setItemModalCategory(item.category || 'Weapon'); setEditingItem(item); setShowItemModal(true); setShowDeathModal(false); navigate('Armory') }
 
   const liveReportDeath = async ({ memberId, memberName, note, chest, role, diedAt, items: requestedItems }) => {
     try {
@@ -177,6 +181,25 @@ function App() {
       notify(`${saved.name} added to the item catalog`)
       return saved
     } catch (error) { notify(error.message || 'Could not add the item'); return null }
+  }
+
+  const liveUpdateItem = async (item) => {
+    try {
+      const saved = live ? await persistItem(guild.id, item.id, item) : item
+      setItems((current) => current.map((entry) => entry.id === item.id ? saved : entry))
+      setShowItemModal(false)
+      setEditingItem(null)
+      notify(`${saved.name} updated`)
+    } catch (error) { notify(error.message || 'Could not update the item') }
+  }
+
+  const liveDeleteItem = async (item) => {
+    if (!window.confirm(`Remove ${item.name}${item.tier && item.tier !== 'Unspecified' ? ` · Tier ${item.tier}` : ''} from the guild catalog?`)) return
+    try {
+      if (live && item.id) await removeItem(guild.id, item.id)
+      setItems((current) => current.filter((entry) => entry.id ? entry.id !== item.id : entry !== item))
+      notify(`${item.name} removed from the item catalog`)
+    } catch (error) { notify(error.message || 'Could not remove the item') }
   }
 
   const liveAddCatalogItem = (name) => {
@@ -231,14 +254,14 @@ function App() {
       {active === 'Dashboard' && <DashboardAccurate members={members} items={items} requests={regearRequests} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={(target) => typeof target === 'string' ? liveMarkRegeared(target) : liveMarkRequestRegeared(target)} />}
       {active === 'Daily regears' && <DailyRegearsPaginated requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onMark={liveMarkRequestRegeared} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
-      {active === 'Armory' && <ArmoryWithWeaponsPaginated items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} />}
+      {active === 'Armory' && <ArmoryWithWeaponsPaginated items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} onEdit={openItemEditor} onDelete={liveDeleteItem} />}
       {active === 'Settings' && <AdminSettings onNotify={notify} session={session} guild={guild} />}
       {active === 'Member view' && <MemberViewLive onNotify={notify} />}
     </main>
     {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={liveAddMember} />}
     {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} onSave={liveAddPlan} />}
     {showDeathModal && <DeathModalDaily initialDate={deathModalDate} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => setShowDeathModal(false)} onSave={(payload) => liveReportDeath({ ...payload, items: payload.items.map((item) => typeof item === 'string' ? items.find((entry) => entry.name === item) || { name: item, category: 'Custom' } : item) })} />}
-    {showItemModal && <ItemModal initialCategory={itemModalCategory} onClose={() => setShowItemModal(false)} onSave={liveAddItem} />}
+    {showItemModal && <ItemModal initialCategory={itemModalCategory} initialItem={editingItem} onClose={() => { setShowItemModal(false); setEditingItem(null) }} onSave={editingItem ? liveUpdateItem : liveAddItem} />}
     {toast && <div className="toast"><span className="toast-dot" />{toast}</div>}
   </div>
 }
@@ -468,14 +491,27 @@ function MembersPaginated({ members, onOpenMember, onMark, onUpdateChest, onRemo
   return <div className="page"><PageIntro eyebrow="Roster management" title="Members" description="Search members, edit their issue chest, and manage only active casualty regears." action="Add member" onAction={onOpenMember} /><div className="member-toolbar"><div className="member-count"><strong>{visibleMembers.length}</strong> members <span>·</span> <b>{visibleMembers.filter((member) => member.status === 'Open regear').length} open regears</b></div></div><section className="member-card-grid">{pageMembers.map((member) => <MemberCardCasualty key={member.id || member.name} member={member} onMark={onMark} onUpdateChest={onUpdateChest} onRemove={onRemove} />)}{!visibleMembers.length && <EmptyState text="No members match this search." />}</section><Pagination page={safePage} pageSize={pageSize} total={visibleMembers.length} onPageChange={setPage} /></div>
 }
 
-function ArmoryWithWeaponsPaginated({ items, onNotify, onAddWeapon }) {
+function ArmoryWithWeaponsPaginated({ items, onNotify, onAddWeapon, onEdit, onDelete }) {
+  const [category, setCategory] = useState('All')
   const [page, setPage] = useState(1)
   const pageSize = 12
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+  const categories = [['All', 'All'], ['Weapon', 'Weapon'], ['Head', 'Helmet'], ['Armor', 'Armor'], ['Boots', 'Boots'], ['Off hand', 'Off hand']]
+  const visibleItems = category === 'All' ? items : items.filter((item) => item.category === category)
+  const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize))
   const safePage = Math.min(page, totalPages)
-  const pageItems = items.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const pageItems = visibleItems.slice((safePage - 1) * pageSize, safePage * pageSize)
+  useEffect(() => { setPage(1) }, [category])
   useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
-  return <div className="armory-stack"><ArmoryPaginated items={items} pageItems={pageItems} page={safePage} pageSize={pageSize} onPageChange={setPage} onNotify={onNotify} onAddItem={onAddWeapon} /><WeaponLibraryPaginated items={items} onAddWeapon={onAddWeapon} /></div>
+  return <div className="armory-stack"><ArmoryCatalogTable items={items} visibleItems={visibleItems} pageItems={pageItems} page={safePage} pageSize={pageSize} category={category} categories={categories} onCategoryChange={setCategory} onPageChange={setPage} onNotify={onNotify} onAddItem={onAddWeapon} onEdit={onEdit} onDelete={onDelete} /><WeaponLibraryPaginated items={items} onAddWeapon={onAddWeapon} /></div>
+}
+
+function ArmoryCatalogTable({ items, visibleItems, pageItems, page, pageSize, category, categories, onCategoryChange, onPageChange, onAddItem, onEdit, onDelete }) {
+  const totalStock = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+  const minimumStock = items.reduce((sum, item) => sum + Number(item.minimumQuantity || 0), 0)
+  const healthy = items.length ? Math.round(items.reduce((sum, item) => sum + Number(item.percentage || 0), 0) / items.length) : 0
+  const lowStock = items.filter((item) => item.tone === 'low').length
+  const categoryLabel = (value) => value === 'Head' ? 'Helmet' : value
+  return <div className="page"><PageIntro eyebrow="Guild inventory" title="Armory" description="The item catalog is stored in Supabase. Items belong to the guild chest; member issue chests are managed from Members." action="Add item" onAction={onAddItem} /><div className="armory-overview"><div className="panel inventory-total"><span className="eyebrow">Catalog items</span><strong>{items.length}</strong><p>{totalStock} units tracked</p></div><div className="panel inventory-total"><span className="eyebrow">Needs restock</span><strong className="ember-text">{String(lowStock).padStart(2, '0')}</strong><p>{minimumStock} minimum units recorded</p></div><div className="panel inventory-total"><span className="eyebrow">Stock health</span><strong className="time-value">{healthy}%</strong><p>Calculated from saved quantities</p></div></div><div className="armory-category-tabs" role="tablist" aria-label="Filter armory by category">{categories.map(([value, label]) => <button type="button" role="tab" aria-selected={category === value} key={value} className={category === value ? 'selected' : ''} onClick={() => onCategoryChange(value)}>{label}<span>{value === 'All' ? items.length : items.filter((item) => item.category === value).length}</span></button>)}</div><section className="panel inventory-table"><div className="table-header"><span>Item</span><span>Category</span><span>Stock</span><span>Health</span><span>Actions</span></div>{pageItems.map((item) => <div className="inventory-row" key={item.id || `${item.name}-${item.tier}`}><div className="item-cell"><div className={`item-icon item-${item.tone}`}><Icon name={item.category === 'Weapon' ? 'swords' : 'box'} size={16} /></div><strong>{item.name}{item.tier && item.tier !== 'Unspecified' ? <small className="item-tier">Tier {item.tier}</small> : null}</strong></div><span>{categoryLabel(item.category)}</span><span>{item.stock}</span><div className="health-cell"><div className="mini-bar"><i className={`bar-${item.tone}`} style={{ width: `${item.percentage}%` }} /></div><span>{item.percentage}%</span></div><div className="item-actions"><button type="button" className="item-action" onClick={() => onEdit(item)} aria-label={`Edit ${item.name}`} title={`Edit ${item.name}`}><Icon name="edit" size={14} /></button><button type="button" className="item-action item-action-danger" onClick={() => onDelete(item)} aria-label={`Remove ${item.name}`} title={`Remove ${item.name}`}><Icon name="trash" size={14} /></button></div></div>)}{!visibleItems.length && <EmptyState text={category === 'All' ? 'No items are saved yet. Add the first catalog item.' : `No ${categoryLabel(category).toLowerCase()} items are saved yet.`} />}</section><Pagination page={page} pageSize={pageSize} total={visibleItems.length} onPageChange={onPageChange} /></div>
 }
 
 function ArmoryPaginated({ items, pageItems, page, pageSize, onPageChange, onNotify, onAddItem }) {
@@ -727,7 +763,18 @@ function DeathModalDaily({ initialDate, members, items, onRequestAddItem, onClos
 
 function ItemModalLive({ onClose, onSave, initialCategory = 'Weapon' }) { const [name, setName] = useState(''); const [category, setCategory] = useState(initialCategory); const [tier, setTier] = useState('Unspecified'); const [quantity, setQuantity] = useState('0'); const [minimumQuantity, setMinimumQuantity] = useState('0'); const tiers = ['Unspecified', '1', '2', '3', '4', '4.1', '4.2', '4.3', '4.4', '5', '5.1', '5.2', '5.3', '5.4', '6', '6.1', '6.2', '6.3', '6.4', '7', '7.1', '7.2', '7.3', '7.4', '8', '8.1', '8.2', '8.3', '8.4']; return <Modal title="Add catalog item" eyebrow="Guild chest catalog" onClose={onClose}><div className="form-grid"><label>Item name<input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Judicator Armor" /></label><label>Category<select value={category} onChange={(e) => setCategory(e.target.value)}><option>Weapon</option><option>Off hand</option><option>Head</option><option>Armor</option><option>Boots</option><option>Custom</option></select></label><label>Tier<select value={tier} onChange={(e) => setTier(e.target.value)}>{tiers.map((option) => <option key={option} value={option}>{option === 'Unspecified' ? option : `Tier ${option}`}</option>)}</select><small className="field-help">Albion tiers 4–8 support .1, .2, .3 and .4 variants.</small></label><label>Current quantity<input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="numeric" /></label><label>Minimum quantity<input type="number" min="0" value={minimumQuantity} onChange={(e) => setMinimumQuantity(e.target.value)} inputMode="numeric" /></label></div><div className="kit-callout"><Icon name="box" size={18} /><div><strong>Stored in the guild chest</strong><span>Chest locations are not assigned to catalog items. Members keep their own issue chest.</span></div></div><div className="modal-footer"><button className="button button-ghost" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={!name.trim()} onClick={() => onSave({ name: name.trim(), category, tier, quantity: Number(quantity) || 0, minimumQuantity: Number(minimumQuantity) || 0 })}><Icon name="plus" size={15} />Add item</button></div></Modal> }
 
-function ItemModal({ onClose, onSave, initialCategory }) { return <ItemModalLive initialCategory={initialCategory} onClose={onClose} onSave={onSave} /> }
+function CatalogItemModal({ onClose, onSave, initialCategory = 'Weapon', initialItem }) {
+  const [name, setName] = useState(initialItem?.name || '')
+  const [category, setCategory] = useState(initialItem?.category || initialCategory)
+  const [tier, setTier] = useState(initialItem?.tier || 'Unspecified')
+  const [quantity, setQuantity] = useState(String(initialItem?.quantity || 0))
+  const [minimumQuantity, setMinimumQuantity] = useState(String(initialItem?.minimumQuantity || 0))
+  const tiers = ['Unspecified', '1', '2', '3', '4', '4.1', '4.2', '4.3', '4.4', '5', '5.1', '5.2', '5.3', '5.4', '6', '6.1', '6.2', '6.3', '6.4', '7', '7.1', '7.2', '7.3', '7.4', '8', '8.1', '8.2', '8.3', '8.4']
+  const save = () => onSave({ ...initialItem, name: name.trim(), category, tier, quantity: Number(quantity) || 0, minimumQuantity: Number(minimumQuantity) || 0 })
+  return <Modal title={initialItem ? 'Edit catalog item' : 'Add catalog item'} eyebrow="Guild chest catalog" onClose={onClose}><div className="form-grid"><label>Item name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Judicator Armor" /></label><label>Category<select value={category} onChange={(event) => setCategory(event.target.value)}><option value="Weapon">Weapon</option><option value="Off hand">Off hand</option><option value="Head">Helmet</option><option value="Armor">Armor</option><option value="Boots">Boots</option><option value="Custom">Custom</option></select></label><label>Tier<select value={tier} onChange={(event) => setTier(event.target.value)}>{tiers.map((option) => <option key={option} value={option}>{option === 'Unspecified' ? option : `Tier ${option}`}</option>)}</select><small className="field-help">Albion tiers 4–8 support .1, .2, .3 and .4 variants.</small></label><label>Current quantity<input type="number" min="0" value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="numeric" /></label><label>Minimum quantity<input type="number" min="0" value={minimumQuantity} onChange={(event) => setMinimumQuantity(event.target.value)} inputMode="numeric" /></label></div><div className="kit-callout"><Icon name="box" size={18} /><div><strong>Stored in the guild chest</strong><span>Chest locations are not assigned to catalog items. Members keep their own issue chest.</span></div></div><div className="modal-footer"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" disabled={!name.trim()} onClick={save}><Icon name={initialItem ? 'edit' : 'plus'} size={15} />{initialItem ? 'Save changes' : 'Add item'}</button></div></Modal>
+}
+
+function ItemModal({ onClose, onSave, initialCategory, initialItem }) { return <CatalogItemModal initialCategory={initialCategory} initialItem={initialItem} onClose={onClose} onSave={onSave} /> }
 function PlanModal({ onClose, onSave }) { const [name, setName] = useState(''); const [budget, setBudget] = useState(''); const [date, setDate] = useState(''); const [time, setTime] = useState(''); const save = () => onSave({ name: name.trim(), budget, startsAt: new Date(`${date}T${time}:00`).toISOString() }); return <Modal title="Schedule CTA" eyebrow="CTA event" onClose={onClose}><div className="form-grid"><label>CTA name<input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Avalonian Roads" /></label><label>Default kit template<select defaultValue="Caller standard"><option>Tank standard</option><option>Support standard</option><option>Healer standard</option><option>DPS standard</option><option>Bomb standard</option><option>Caller standard</option></select></label><label>Date<input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label><label>Start time<input type="time" value={time} onChange={(e) => setTime(e.target.value)} required /></label><label>Attendees<select defaultValue="Select members"><option>Select members</option><option>All classified members</option><option>All active members</option></select></label><label>Silver budget<input value={budget} onChange={(e) => setBudget(e.target.value)} inputMode="numeric" placeholder="Optional" /></label></div><div className="kit-callout"><Icon name="swords" size={18} /><div><strong>Template for casualty requests</strong><span>When a death is reported, this template can fill replacement items for that role.</span></div></div><div className="modal-footer"><button className="button button-ghost" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={!name.trim() || !date || !time} onClick={save}>Schedule CTA</button></div></Modal> }
 
 function DashboardAccurate({ members, items = [], requests = [], onOpenMember, onOpenDeath, onNavigate, onMark }) {

@@ -179,6 +179,23 @@ export async function insertItem(guildId, item) {
   return toUiItem(data)
 }
 
+export async function updateItem(guildId, itemId, item) {
+  const { data, error } = await supabase.from('items').update({
+    name: item.name,
+    category: item.category,
+    tier: item.tier || 'Unspecified',
+    quantity: Number(item.quantity || 0),
+    minimum_quantity: Number(item.minimumQuantity || 0),
+  }).eq('id', itemId).eq('guild_id', guildId).select('*, chests(label)').single()
+  if (error) throw error
+  return toUiItem(data)
+}
+
+export async function deleteItem(guildId, itemId) {
+  const { error } = await supabase.from('items').delete().eq('id', itemId).eq('guild_id', guildId)
+  if (error) throw error
+}
+
 function itemSlots(items = []) {
   const slots = { weapon: null, off_hand: null, helmet: null, armor: null, boots: null }
   items.forEach((item) => {

@@ -141,6 +141,22 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   /* Fixed image backgrounds can hitch during touch scrolling on mobile. */
   .app-shell { background-attachment: scroll; }
 }
+
+/* Armory catalog management */
+.armory-category-tabs { display: flex; gap: 4px; overflow-x: auto; margin: -3px 0 13px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: #171411; scrollbar-width: thin; }
+.armory-category-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border: 0; border-radius: 4px; padding: 0 11px; color: #837970; background: transparent; font-family: 'DM Mono', monospace; font-size: 9px; white-space: nowrap; cursor: pointer; }
+.armory-category-tabs button:hover { color: #e1d5c9; background: #241d19; }
+.armory-category-tabs button.selected { color: #f0dfd0; background: #302119; box-shadow: inset 0 -2px var(--ember); }
+.armory-category-tabs button span { color: var(--ember); font-size: 8px; }
+.armory-stack .inventory-table .table-header, .armory-stack .inventory-table .inventory-row { grid-template-columns: minmax(185px, 1.5fr) 1fr 90px 1.2fr 76px; min-width: 700px; }
+.item-cell > strong { display: flex; align-items: flex-start; flex-direction: column; gap: 3px; min-width: 0; }
+.item-tier { color: #a88870; font-family: 'DM Mono', monospace; font-size: 8px; font-weight: 400; }
+.item-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.item-action { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #4a3a2d; border-radius: 5px; color: #bda18b; background: #211b17; cursor: pointer; transition: color .18s ease, border-color .18s ease, background .18s ease; }
+.item-action:hover { border-color: #8b5634; color: #f0b17b; background: #302119; }
+.item-action-danger { color: #b78379; }
+.item-action-danger:hover { border-color: #985a50; color: #e3a399; background: #321f1d; }
+@media (max-width: 540px) { .armory-category-tabs { margin-top: 0; }.armory-category-tabs button { min-height: 42px; padding: 0 10px; }.armory-stack .inventory-table .table-header, .armory-stack .inventory-table .inventory-row { min-width: 680px; } }
 .logout-button { margin-left: auto; border: 0; background: transparent; color: #c48a6c; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
 .logout-button:hover { color: #f0b6a7; }
 .daily-layout { display: grid; grid-template-columns: 245px minmax(0, 1fr); gap: 18px; align-items: start; }
