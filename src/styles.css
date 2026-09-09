@@ -187,6 +187,12 @@ body { font-size: 13px; }
 .dashboard-purpose p, .dashboard-shortcut small { font-size: 10px; }
 .public-result-role, .public-result-main small, .public-member-footer, .public-search-hint { font-size: 10px; }
 
+/* Dashboard helper copy should remain readable beside the large request count. */
+.dashboard-signal-label { font-size: 11px; }
+.dashboard-signal-detail { font-size: 13px; }
+.dashboard-hero-signal small { color: #a18d7f; font-size: 12px; line-height: 1.55; }
+.dashboard-metric small { font-size: 10px; }
+
 @media (max-width: 540px) {
   .page-intro p { font-size: 12px; }
   .member-count { font-size: 10px; }
