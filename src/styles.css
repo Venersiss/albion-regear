@@ -68,6 +68,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .daily-filters label { display: grid; gap: 6px; color: #847970; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; }
 .daily-filters input, .daily-filters select { min-height: 34px; border: 1px solid var(--line); border-radius: 5px; padding: 0 9px; outline: 0; background: #171411; color: #ddcfc3; font-family: inherit; font-size: 10px; text-transform: none; }
 .daily-filters input:focus, .daily-filters select:focus { border-color: #805237; box-shadow: 0 0 0 2px rgba(212, 119, 54, .1); }
+.pending-copy { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.pending-copy small { color: #81766d; font-family: 'DM Mono', monospace; font-size: 8px; }
+.invite-cancel { flex: 0 0 auto; min-height: 30px; padding: 0 9px; font-size: 8px; }
 .regear-entry-list { display: grid; gap: 10px; }
 .regear-entry { padding: 16px 18px; }
 .regear-entry-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -89,6 +92,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 @media (max-width: 760px) { .daily-layout { grid-template-columns: 1fr; }.day-list { display: flex; flex-wrap: wrap; gap: 6px; }.day-list-heading { width: 100%; }.day-button { width: auto; min-width: 145px; margin-top: 0; }.new-day-field { width: 100%; }.regear-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .daily-detail-heading { align-items: stretch; flex-direction: column; }.daily-detail-heading .button { width: 100%; }.slot-grid { grid-template-columns: 1fr; }.regear-entry { padding: 14px; }.regear-entry-top { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 520px) { .daily-filters { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .pending-row { align-items: flex-start; flex-wrap: wrap; }.pending-row .status { margin-left: 34px; }.pending-row .invite-cancel { margin-left: 34px; } }
 @media (max-width: 600px) {
   .app-shell { padding-bottom: 0; }
   .mobile-menu-button { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 8px; background: #171411; color: #d2b29b; }

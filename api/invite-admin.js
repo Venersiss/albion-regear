@@ -38,7 +38,7 @@ export default async function handler(req, res) {
   if (linkError) return res.status(500).json({ error: `The invitation was sent, but admin access could not be linked: ${linkError.message}` })
 
   const tokenHash = createHash('sha256').update(randomBytes(32)).digest('hex')
-  const { error: recordError } = await admin.from('admin_invites').insert({ guild_id: guild.id, email, invited_by: authData.user.id, token_hash: tokenHash })
+  const { error: recordError } = await admin.from('admin_invites').insert({ guild_id: guild.id, email, invited_by: authData.user.id, invited_user_id: invitedUser.id, token_hash: tokenHash })
   if (recordError) return res.status(500).json({ error: `The invitation was sent, but it could not be recorded: ${recordError.message}` })
 
   return res.status(200).json({ message: `Invitation sent to ${email}.`, email })

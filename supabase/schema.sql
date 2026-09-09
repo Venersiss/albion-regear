@@ -25,6 +25,7 @@ create table if not exists public.admin_invites (
   guild_id uuid not null references public.guilds(id) on delete cascade,
   email text not null,
   invited_by uuid not null references auth.users(id) on delete restrict,
+  invited_user_id uuid references auth.users(id) on delete set null,
   token_hash text not null unique,
   expires_at timestamptz not null default (now() + interval '7 days'),
   accepted_by uuid references auth.users(id) on delete set null,
