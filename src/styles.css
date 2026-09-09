@@ -674,3 +674,31 @@ body { font-size: 13px; }
 .member-card-details-single { grid-template-columns: minmax(0, 1fr); }
 .regear-entry-meta { flex-wrap: wrap; }
 .daily-request-section-closed .regear-entry-meta .regear-completion { color: #8eb491; }
+.admin-presence-widget { position: relative; display: flex; align-items: center; }
+.admin-presence-launcher { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; border: 1px solid transparent; border-radius: 6px; padding: 0 7px; color: #9e988f; background: transparent; font-family: 'DM Mono', monospace; font-size: 9px; white-space: nowrap; }
+.admin-presence-launcher:hover, .admin-presence-launcher[aria-expanded='true'] { border-color: #4f3d30; color: #e1d4c8; background: #211b17; }
+.admin-presence-launcher-dot { width: 7px; height: 7px; border-radius: 50%; background: #79a77c; box-shadow: 0 0 9px rgba(121, 167, 124, .75); }
+.admin-presence-launcher strong { color: #d3b297; font-weight: 500; }
+.admin-presence-launcher .icon { color: #766e66; transform: rotate(90deg); }
+.admin-presence-popover-backdrop { position: fixed; z-index: 41; inset: 0; border: 0; background: transparent; }
+.admin-presence-popover { position: absolute; z-index: 42; top: calc(100% + 13px); right: 0; width: min(360px, calc(100vw - 28px)); display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; max-height: min(600px, calc(100vh - 86px)); overflow: hidden; border: 1px solid #59402f; border-radius: 10px; background: linear-gradient(160deg, #2a201b, #171513 38%, #141312); box-shadow: 0 22px 70px rgba(0, 0, 0, .5); animation: notification-popover-in .18s ease both; }
+.admin-presence-popover-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 18px 14px; border-bottom: 1px solid rgba(255, 255, 255, .09); }
+.admin-presence-popover-header h2 { margin: 6px 0 4px; color: #f0dfd1; font-family: 'Newsreader', serif; font-size: 25px; font-weight: 500; }
+.admin-presence-popover-header p { margin: 0; color: #9d8d81; font-size: 10px; line-height: 1.5; }
+.admin-presence-popover-summary { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); color: #8da98d; font-family: 'DM Mono', monospace; font-size: 9px; }
+.admin-presence-popover-summary strong { color: #e0c1a9; font-family: 'Newsreader', serif; font-size: 24px; font-weight: 500; line-height: 1; }
+.admin-presence-popover-summary button { margin-left: auto; border: 0; color: var(--ember); background: transparent; font-family: 'DM Mono', monospace; font-size: 8px; }
+.admin-presence-popover-summary button:hover { color: #efaa71; }
+.admin-presence-popover-summary button:disabled { opacity: .5; cursor: wait; }
+.admin-presence-popover-list { overflow-y: auto; min-height: 0; padding: 6px 12px; }
+.admin-presence-popover-list .admin-directory-row { min-height: 61px; }
+.admin-presence-popover-list .admin-directory-copy > span { display: none; }
+.admin-presence-popover-list .admin-directory-empty { min-height: 130px; }
+.admin-presence-popover-footer { display: flex; justify-content: space-between; gap: 10px; padding: 11px 15px 12px; border-top: 1px solid rgba(255, 255, 255, .09); color: #756b63; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; }
+.admin-presence-popover-footer span:first-child { display: inline-flex; align-items: center; gap: 6px; color: #8da98d; }
+.admin-presence-popover-footer i { width: 6px; height: 6px; border-radius: 50%; background: #79a77c; box-shadow: 0 0 8px rgba(121, 167, 124, .7); }
+@media (max-width: 600px) {
+  .admin-presence-launcher { min-width: 34px; justify-content: center; padding: 0 5px; }
+  .admin-presence-launcher-label { display: none; }
+  .admin-presence-popover { right: -8px; width: min(360px, calc(100vw - 16px)); }
+}

@@ -264,7 +264,7 @@ function App() {
   return <div className="app-shell">
     <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.filter((request) => request.status !== 'regeared').length} />
     <main className="main-content">
-      <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} onChat={() => { setNotificationsOpen(false); setChatOpen(true); setChatUnread(0) }} chatUnread={chatUnread} onNotifications={() => { setChatOpen(false); setNotificationsOpen((current) => !current) }} notificationUnread={notificationUnread} notificationsOpen={notificationsOpen} />
+      <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} onChat={() => { setNotificationsOpen(false); setChatOpen(true); setChatUnread(0) }} chatUnread={chatUnread} onNotifications={() => { setChatOpen(false); setNotificationsOpen((current) => !current) }} notificationUnread={notificationUnread} notificationsOpen={notificationsOpen} session={session} guild={guild} />
       {active === 'Dashboard' && <DashboardAccurate members={members} items={items} requests={regearRequests} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={(target) => typeof target === 'string' ? liveMarkRegeared(target) : liveMarkRequestRegeared(target)} />}
       {active === 'Daily regears' && <DailyRegearsPaginated requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onMark={liveMarkRequestRegeared} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
@@ -367,11 +367,51 @@ function Sidebar({ active, onNavigate, userName, userEmail, onSignOut, mobileNav
   </aside></>
 }
 
-function Topbar({ query, setQuery, onNotify, onMenu, onChat, chatUnread = 0, onNotifications, notificationUnread = 0, notificationsOpen = false }) {
+function Topbar({ query, setQuery, onNotify, onMenu, onChat, chatUnread = 0, onNotifications, notificationUnread = 0, notificationsOpen = false, session, guild }) {
+  const [presenceOpen, setPresenceOpen] = useState(false)
   const chatButton = <button type="button" className="notification chat-launcher" onClick={onChat} aria-label={`Open admin chat${chatUnread ? `, ${chatUnread} unread` : ''}`}><Icon name="chat" size={18} />{chatUnread > 0 && <b className="chat-unread">{chatUnread > 9 ? '9+' : chatUnread}</b>}</button>
-  const notificationButton = <button type="button" className="notification notification-launcher" onClick={onNotifications} aria-label={`Open notifications${notificationUnread ? `, ${notificationUnread} unread` : ''}`} aria-expanded={notificationsOpen}><Icon name="bell" size={18} />{notificationUnread > 0 && <b className="notification-unread">{notificationUnread > 9 ? '9+' : notificationUnread}</b>}{notificationUnread > 0 && <i className="notification-unread-dot" />}</button>
-  if (typeof window !== 'undefined' && window.innerWidth <= 600) return <header className="topbar mobile-topbar"><button className="mobile-menu-button" onClick={onMenu} aria-label="Open navigation"><Icon name="menu" size={20} /></button><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." aria-label="Search members" /></label>{chatButton}{notificationButton}</div></header>
-  return <header className="topbar"><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="breadcrumbs"><span>Coup De Grace</span><Icon name="chevron" size={14} /><strong>Operations room</strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search members..." aria-label="Search members" /><kbd>⌘ K</kbd></label>{chatButton}{notificationButton}<div className="online"><span /> Live</div></div></header>
+  const notificationButton = <button type="button" className="notification notification-launcher" onClick={() => { setPresenceOpen(false); onNotifications() }} aria-label={`Open notifications${notificationUnread ? `, ${notificationUnread} unread` : ''}`} aria-expanded={notificationsOpen}><Icon name="bell" size={18} />{notificationUnread > 0 && <b className="notification-unread">{notificationUnread > 9 ? '9+' : notificationUnread}</b>}{notificationUnread > 0 && <i className="notification-unread-dot" />}</button>
+  const presenceButton = <AdminPresenceWidget open={presenceOpen} onToggle={() => { setPresenceOpen((current) => !current) }} onClose={() => setPresenceOpen(false)} session={session} guild={guild} />
+  if (typeof window !== 'undefined' && window.innerWidth <= 600) return <header className="topbar mobile-topbar"><button className="mobile-menu-button" onClick={onMenu} aria-label="Open navigation"><Icon name="menu" size={20} /></button><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." aria-label="Search members" /></label>{chatButton}{notificationButton}{presenceButton}</div></header>
+  return <header className="topbar"><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="breadcrumbs"><span>Coup De Grace</span><Icon name="chevron" size={14} /><strong>Operations room</strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search members..." aria-label="Search members" /><kbd>⌘ K</kbd></label>{chatButton}{notificationButton}{presenceButton}</div></header>
+}
+
+function AdminPresenceWidget({ open, onToggle, onClose, session, guild }) {
+  const [admins, setAdmins] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [refreshRequested, setRefreshRequested] = useState(0)
+  const accessToken = session?.access_token
+
+  useEffect(() => {
+    if (!guild?.id || !accessToken) { setAdmins([]); return undefined }
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch('/api/admin-directory', { headers: { Authorization: `Bearer ${accessToken}` } })
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(result.error || 'Could not load administrators.')
+        if (mounted) { setAdmins(result.admins || []); setError('') }
+      } catch (loadError) {
+        if (mounted) setError(loadError.message || 'Could not load administrators.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    const interval = window.setInterval(load, 60 * 1000)
+    return () => { mounted = false; window.clearInterval(interval) }
+  }, [guild?.id, accessToken, refreshRequested])
+
+  const onlineCount = admins.filter((admin) => admin.online).length
+  const formatSeen = (value) => {
+    if (!value) return 'No recent activity'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return 'No recent activity'
+    return `Last seen ${new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(date)} UTC`
+  }
+  return <div className="admin-presence-widget"><button type="button" className="admin-presence-launcher" onClick={onToggle} aria-label={`Show administrators, ${onlineCount} online`} aria-expanded={open}><span className="admin-presence-launcher-dot" /><span className="admin-presence-launcher-label">Administrators</span><strong>{onlineCount}</strong><Icon name="chevron" size={13} /></button>{open && <><button type="button" className="admin-presence-popover-backdrop" onClick={onClose} aria-label="Close administrator list" /><section className="admin-presence-popover" role="dialog" aria-modal="true" aria-labelledby="topbar-presence-title"><header className="admin-presence-popover-header"><div><span className="eyebrow">Team presence</span><h2 id="topbar-presence-title">Administrators</h2><p>Who can manage Coup De Grace regear records.</p></div><button type="button" className="close-button" onClick={onClose} aria-label="Close administrator list"><Icon name="close" size={18} /></button></header><div className="admin-presence-popover-summary"><strong>{onlineCount}</strong><span>online now</span><button type="button" onClick={() => setRefreshRequested((current) => current + 1)} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</button></div><div className="admin-presence-popover-list">{loading && !admins.length && <div className="admin-directory-empty"><div className="public-loader" /><strong>Loading administrators...</strong></div>}{!loading && error && <div className="admin-directory-error" role="alert"><strong>List unavailable</strong><span>{error}</span></div>}{!error && admins.map((admin) => <div className="admin-directory-row" key={admin.id}><div className="admin-directory-avatar">{admin.username?.[0]?.toUpperCase() || 'A'}</div><div className="admin-directory-copy"><strong>{admin.username}{admin.isCurrent && <span className="admin-you">You</span>}</strong><small>{admin.online ? 'Active now' : formatSeen(admin.lastSeenAt)}</small></div><span className={`admin-presence-status ${admin.online ? 'online' : 'offline'}`}><i />{admin.online ? 'Online' : 'Offline'}</span></div>)}{!loading && !error && !admins.length && <div className="admin-directory-empty"><strong>No linked administrators</strong><span>Invite an administrator from Settings.</span></div>}</div><footer className="admin-presence-popover-footer"><span><i /> Updates every minute</span><span>{admins.length} linked</span></footer></section></>}</div>
 }
 
 function chatMessageDate(value) {
