@@ -33,6 +33,11 @@ on public.admin_presence for all to authenticated
 using (public.is_guild_admin(guild_id))
 with check (public.is_guild_admin(guild_id));
 
+create policy guild_admins_manage_messages
+on public.admin_messages for all to authenticated
+using (public.is_guild_admin(guild_id))
+with check (public.is_guild_admin(guild_id));
+
 create policy guild_admins_manage_members
 on public.members for all to authenticated
 using (public.is_guild_admin(guild_id))

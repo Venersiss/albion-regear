@@ -30,6 +30,20 @@ create table if not exists public.admin_presence (
 create index if not exists admin_presence_last_seen_idx
   on public.admin_presence(guild_id, last_seen_at desc);
 
+create table if not exists public.admin_messages (
+  id uuid primary key default gen_random_uuid(),
+  guild_id uuid not null references public.guilds(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  sender_name text not null,
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now(),
+  edited_at timestamptz,
+  deleted_at timestamptz
+);
+
+create index if not exists admin_messages_guild_created_idx
+  on public.admin_messages(guild_id, created_at desc);
+
 create table if not exists public.admin_invites (
   id uuid primary key default gen_random_uuid(),
   guild_id uuid not null references public.guilds(id) on delete cascade,
@@ -173,6 +187,7 @@ create index if not exists plans_guild_id_starts_at_idx on public.regear_plans(g
 alter table public.guilds enable row level security;
 alter table public.guild_admins enable row level security;
 alter table public.admin_presence enable row level security;
+alter table public.admin_messages enable row level security;
 alter table public.admin_invites enable row level security;
 alter table public.members enable row level security;
 alter table public.chests enable row level security;

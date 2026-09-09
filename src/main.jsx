@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
@@ -11,6 +11,7 @@ const icons = {
   box: <><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="m3 8 9 5 9-5M3 8v8l9 5 9-5V8M12 13v8"/></>,
   settings: <><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4v.3a2 2 0 1 1-4 0v-.2A2 2 0 0 0 5.8 18l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A2 2 0 0 0 1.6 12a2 2 0 1 1 0-4h.2a2 2 0 0 0 1.4-3.4l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A2 2 0 0 0 9.4.4h.2a2 2 0 1 1 4 0v.2A2 2 0 0 0 17 2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A2 2 0 0 0 21.2 8h.2a2 2 0 1 1 0 4h-.2a2 2 0 0 0-1.8 3Z"/></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
+  chat: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4h0A2.5 2.5 0 0 1 4 12.5v-7Z"/><path d="M8 8h8M8 11h5"/></>,
   search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
   plus: <><path d="M12 5v14M5 12h14"/></>,
   chevron: <path d="m9 18 6-6-6-6"/>,
@@ -87,6 +88,8 @@ function App() {
   const [ctaPlans, setCtaPlans] = useState([])
   const [publicView, setPublicView] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatUnread, setChatUnread] = useState(0)
   const [invitePending, setInvitePending] = useState(() => typeof window !== 'undefined' && window.location.hash.includes('type=invite'))
 
   const filteredMembers = useMemo(() => members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.role.toLowerCase().includes(query.toLowerCase())).sort(compareMembersByChest), [members, query])
@@ -250,7 +253,7 @@ function App() {
   return <div className="app-shell">
     <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.filter((request) => request.status !== 'regeared').length} />
     <main className="main-content">
-      <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} />
+      <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} onChat={() => { setChatOpen(true); setChatUnread(0) }} chatUnread={chatUnread} />
       {active === 'Dashboard' && <DashboardAccurate members={members} items={items} requests={regearRequests} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={(target) => typeof target === 'string' ? liveMarkRegeared(target) : liveMarkRequestRegeared(target)} />}
       {active === 'Daily regears' && <DailyRegearsPaginated requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onMark={liveMarkRequestRegeared} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
@@ -258,6 +261,7 @@ function App() {
       {active === 'Settings' && <AdminSettings onNotify={notify} session={session} guild={guild} />}
       {active === 'Member view' && <MemberViewLive onNotify={notify} />}
     </main>
+    <AdminChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} session={session} guild={guild} onNewMessage={() => { if (!chatOpen) setChatUnread((current) => current + 1) }} />
     {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={liveAddMember} />}
     {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} onSave={liveAddPlan} />}
     {showDeathModal && <DeathModalDaily initialDate={deathModalDate} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => setShowDeathModal(false)} onSave={(payload) => liveReportDeath({ ...payload, items: payload.items.map((item) => typeof item === 'string' ? items.find((entry) => entry.name === item) || { name: item, category: 'Custom' } : item) })} />}
@@ -351,9 +355,79 @@ function Sidebar({ active, onNavigate, userName, userEmail, onSignOut, mobileNav
   </aside></>
 }
 
-function Topbar({ query, setQuery, onNotify, onMenu }) {
-  if (typeof window !== 'undefined' && window.innerWidth <= 600) return <header className="topbar mobile-topbar"><button className="mobile-menu-button" onClick={onMenu} aria-label="Open navigation"><Icon name="menu" size={20} /></button><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." aria-label="Search members" /></label><button className="notification" onClick={() => onNotify('No new alerts')} aria-label="View notifications"><Icon name="bell" size={18} /><i /></button></div></header>
-  return <header className="topbar"><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="breadcrumbs"><span>Coup De Grace</span><Icon name="chevron" size={14} /><strong>Operations room</strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search members..." aria-label="Search members" /><kbd>⌘ K</kbd></label><button className="notification" onClick={() => onNotify('No new alerts')} aria-label="View notifications"><Icon name="bell" size={18} /><i /></button><div className="online"><span /> Live</div></div></header>
+function Topbar({ query, setQuery, onNotify, onMenu, onChat, chatUnread = 0 }) {
+  const chatButton = <button type="button" className="notification chat-launcher" onClick={onChat} aria-label={`Open admin chat${chatUnread ? `, ${chatUnread} unread` : ''}`}><Icon name="chat" size={18} />{chatUnread > 0 && <b className="chat-unread">{chatUnread > 9 ? '9+' : chatUnread}</b>}</button>
+  if (typeof window !== 'undefined' && window.innerWidth <= 600) return <header className="topbar mobile-topbar"><button className="mobile-menu-button" onClick={onMenu} aria-label="Open navigation"><Icon name="menu" size={20} /></button><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." aria-label="Search members" /></label>{chatButton}<button className="notification" onClick={() => onNotify('No new alerts')} aria-label="View notifications"><Icon name="bell" size={18} /><i /></button></div></header>
+  return <header className="topbar"><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="breadcrumbs"><span>Coup De Grace</span><Icon name="chevron" size={14} /><strong>Operations room</strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search members..." aria-label="Search members" /><kbd>⌘ K</kbd></label>{chatButton}<button className="notification" onClick={() => onNotify('No new alerts')} aria-label="View notifications"><Icon name="bell" size={18} /><i /></button><div className="online"><span /> Live</div></div></header>
+}
+
+function chatMessageDate(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(date)
+}
+
+function chatDayLabel(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Earlier'
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  const sameDay = (first, second) => first.getFullYear() === second.getFullYear() && first.getMonth() === second.getMonth() && first.getDate() === second.getDate()
+  if (sameDay(date, today)) return 'Today'
+  if (sameDay(date, yesterday)) return 'Yesterday'
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date)
+}
+
+function toChatMessage(row) {
+  return { id: row.id, body: row.body, senderId: row.sender_id, senderName: row.sender_name || 'Administrator', createdAt: row.created_at }
+}
+
+function AdminChatDrawer({ open, onClose, session, guild, onNewMessage }) {
+  const [messages, setMessages] = useState([])
+  const [draft, setDraft] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const messagesEndRef = useRef(null)
+  const currentUserId = session?.user?.id
+  const currentUserName = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'Administrator'
+
+  useEffect(() => {
+    if (!supabase || !guild?.id || !currentUserId) return undefined
+    let mounted = true
+    setLoading(true)
+    supabase.from('admin_messages').select('id, body, sender_id, sender_name, created_at').eq('guild_id', guild.id).order('created_at', { ascending: true }).limit(100).then(({ data, error: loadError }) => {
+      if (!mounted) return
+      if (loadError) setError(loadError.message || 'Could not load admin chat.')
+      else { setMessages((data || []).map(toChatMessage)); setError('') }
+    }).finally(() => { if (mounted) setLoading(false) })
+
+    const channel = supabase.channel(`admin-chat-${guild.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_messages', filter: `guild_id=eq.${guild.id}` }, (payload) => {
+      const message = toChatMessage(payload.new)
+      setMessages((current) => current.some((entry) => entry.id === message.id) ? current : [...current, message])
+      if (!open && message.senderId !== currentUserId) onNewMessage?.()
+    }).subscribe((status) => { if (mounted && status === 'CHANNEL_ERROR') setError('Live updates are unavailable. Run supabase/admin_chat.sql, then refresh.') })
+    return () => { mounted = false; supabase.removeChannel(channel) }
+  }, [guild?.id, currentUserId, open])
+
+  useEffect(() => { if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, open])
+
+  const sendMessage = async (event) => {
+    event.preventDefault()
+    const body = draft.trim()
+    if (!body || sending || !supabase || !guild?.id || !currentUserId) return
+    setSending(true)
+    setError('')
+    const { data, error: sendError } = await supabase.from('admin_messages').insert({ guild_id: guild.id, sender_id: currentUserId, sender_name: currentUserName, body }).select('id, body, sender_id, sender_name, created_at').single()
+    if (sendError) setError(sendError.message || 'Could not send the message.')
+    else { setMessages((current) => current.some((entry) => entry.id === data.id) ? current : [...current, toChatMessage(data)]); setDraft('') }
+    setSending(false)
+  }
+
+  if (!open) return null
+  let lastDay = ''
+  return <><button type="button" className="chat-backdrop" onClick={onClose} aria-label="Close admin chat" /><aside className="admin-chat-drawer" role="dialog" aria-modal="true" aria-labelledby="admin-chat-title"><header className="admin-chat-header"><div><span className="eyebrow">Coup De Grace · admin only</span><h2 id="admin-chat-title">Admin chat</h2><p>Coordinate regear work in one shared room.</p></div><button type="button" className="close-button" onClick={onClose} aria-label="Close admin chat"><Icon name="close" size={19} /></button></header><div className="admin-chat-messages" aria-live="polite">{loading && <div className="admin-chat-empty"><div className="public-loader" /><span>Loading messages...</span></div>}{!loading && error && !messages.length && <div className="admin-chat-empty admin-chat-error"><strong>Chat needs its Supabase table</strong><span>{error}</span><small>Run supabase/admin_chat.sql once, then refresh this page.</small></div>}{!loading && !error && !messages.length && <div className="admin-chat-empty"><span className="admin-chat-empty-icon"><Icon name="chat" size={20} /></span><strong>Start the admin room</strong><span>Share a quick update about an open regear, armory item, or member.</span></div>}{messages.map((message) => { const day = chatDayLabel(message.createdAt); const showDay = day !== lastDay; lastDay = day; const isMine = message.senderId === currentUserId; return <React.Fragment key={message.id}>{showDay && <div className="admin-chat-day"><span>{day}</span></div>}<div className={`admin-chat-message ${isMine ? 'mine' : ''}`}><div className="admin-chat-avatar">{message.senderName?.[0]?.toUpperCase() || 'A'}</div><div className="admin-chat-message-body"><div className="admin-chat-message-meta"><strong>{isMine ? 'You' : message.senderName}</strong><span>{chatMessageDate(message.createdAt)}</span></div><p>{message.body}</p></div></div></React.Fragment> })}<div ref={messagesEndRef} /></div><form className="admin-chat-composer" onSubmit={sendMessage}><label htmlFor="admin-chat-message">Message the admin room</label><div className="admin-chat-input-row"><textarea id="admin-chat-message" value={draft} onChange={(event) => setDraft(event.target.value.slice(0, 2000))} placeholder="Write an update..." rows="2" maxLength="2000" /><button type="submit" className="button button-primary" disabled={!draft.trim() || sending}>{sending ? 'Sending...' : 'Send'}<Icon name="arrow" size={15} /></button></div><div className="admin-chat-composer-footer"><span>Only linked administrators can read this room.</span><small>{draft.length}/2000</small></div>{error && messages.length > 0 && <div className="admin-chat-inline-error" role="alert">{error}</div>}</form></aside></>
 }
 
 function PageIntro({ eyebrow, title, description, action, onAction }) { return <div className="page-intro"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action && <button className="button button-primary" onClick={onAction}><Icon name="plus" size={16} />{action}</button>}</div> }
