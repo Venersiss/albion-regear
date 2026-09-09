@@ -697,6 +697,8 @@ body { font-size: 13px; }
 .admin-presence-popover-footer { display: flex; justify-content: space-between; gap: 10px; padding: 11px 15px 12px; border-top: 1px solid rgba(255, 255, 255, .09); color: #756b63; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; }
 .admin-presence-popover-footer span:first-child { display: inline-flex; align-items: center; gap: 6px; color: #8da98d; }
 .admin-presence-popover-footer i { width: 6px; height: 6px; border-radius: 50%; background: #79a77c; box-shadow: 0 0 8px rgba(121, 167, 124, .7); }
+.notification-actor { color: #e2c2a8; font-weight: 700; }
+.notification-separator { color: #6f6258; }
 @media (max-width: 600px) {
   .admin-presence-launcher { min-width: 34px; justify-content: center; padding: 0 5px; }
   .admin-presence-launcher-label { display: none; }

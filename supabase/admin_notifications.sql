@@ -76,7 +76,7 @@ begin
   elsif tg_table_name = 'admin_messages' then
     type_value := 'chat';
     title_value := 'New admin chat message';
-    body_value := left(coalesce(actor_name_value, 'An administrator') || ': ' || coalesce(row_data ->> 'body', ''), 180);
+    body_value := left(coalesce(row_data ->> 'body', ''), 180);
   elsif tg_table_name = 'admin_invites' then
     type_value := 'invite';
     title_value := 'Administrator invitation sent';
@@ -122,6 +122,8 @@ begin
   actor_name_value := coalesce(actor_name_value, 'Administrator');
   if type_value = 'admin_presence' then
     body_value := actor_name_value || ' is now active in the workspace.';
+  elsif type_value <> 'chat' then
+    body_value := actor_name_value || ' · ' || coalesce(body_value, 'performed an action.');
   end if;
 
   insert into public.admin_notifications (guild_id, actor_id, actor_name, type, title, body, entity_id)
