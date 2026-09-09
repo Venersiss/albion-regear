@@ -207,12 +207,12 @@ function App() {
 
   if (isSupabaseConfigured && authLoading) return <LoadingScreen text="Checking admin access..." />
   if (isSupabaseConfigured && !session) return publicView ? <PublicMemberShell onAdminLogin={() => setPublicView(false)} /> : <AuthGate onMemberView={() => setPublicView(true)} />
-  if (isSupabaseConfigured && session && invitePending) return <SetPasswordGate email={session.user?.email} onComplete={() => setInvitePending(false)} />
+  if (isSupabaseConfigured && session && invitePending) return <SetPasswordGate email={session.user?.email} onComplete={(nextSession) => { if (nextSession) setSession(nextSession); setInvitePending(false) }} />
   if (isSupabaseConfigured && session && (dataLoading || (!guild && !liveError))) return <LoadingScreen text="Loading Coup De Grace workspace..." />
   if (isSupabaseConfigured && session && liveError && !guild) return <ConnectionError message={liveError} onSignOut={() => supabase.auth.signOut()} />
 
   return <div className="app-shell">
-    <Sidebar active={active} onNavigate={navigate} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.length} />
+    <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.length} />
     <main className="main-content">
       <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} />
       {active === 'Dashboard' && <DashboardCasualty members={members} items={items} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={liveMarkRegeared} />}
@@ -235,22 +235,24 @@ function LoadingScreen({ text }) {
 }
 
 function SetPasswordGate({ email, onComplete }) {
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const savePassword = async (event) => {
     event.preventDefault()
+    if (username.trim().length < 2) { setError('Enter a username with at least 2 characters.'); return }
     if (password.length < 8) { setError('Use at least 8 characters for your password.'); return }
     if (password !== confirmation) { setError('The passwords do not match.'); return }
     setBusy(true)
     setError('')
-    const { error: updateError } = await supabase.auth.updateUser({ password })
+    const { error: updateError } = await supabase.auth.updateUser({ password, data: { username: username.trim() } })
     if (updateError) setError(updateError.message)
-    else { window.history.replaceState({}, document.title, window.location.pathname); onComplete() }
+    else { const { data: sessionData } = await supabase.auth.getSession(); window.history.replaceState({}, document.title, window.location.pathname); onComplete(sessionData.session) }
     setBusy(false)
   }
-  return <div className="auth-shell login-shell"><div className="auth-card"><div className="auth-brand"><div className="brand-mark">A<span>R</span></div><div><strong>Albion <em>Regear</em></strong><small>COUP DE GRACE</small></div></div><span className="eyebrow">Administrator invitation</span><h1>Create your password.</h1><p>Finish setting up {email || 'your administrator account'} to access Coup De Grace.</p><form onSubmit={savePassword} className="auth-form"><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" required /></label><label>Confirm password<input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" placeholder="Repeat your password" required /></label>{error && <div className="auth-error" role="alert">{error}</div>}<button className="button button-primary auth-submit" disabled={busy}>{busy ? 'Saving password...' : 'Finish account setup'}</button></form><small className="auth-note">After setup, you will enter the administrator dashboard.</small></div></div>
+  return <div className="auth-shell login-shell"><div className="auth-card"><div className="auth-brand"><div className="brand-mark">A<span>R</span></div><div><strong>Albion <em>Regear</em></strong><small>COUP DE GRACE</small></div></div><span className="eyebrow">Administrator invitation</span><h1>Create your admin profile.</h1><p>Choose the name that will be displayed in the Coup De Grace dashboard.</p><form onSubmit={savePassword} className="auth-form"><label>Username<input type="text" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="nickname" placeholder="e.g. Jasper" maxLength={32} required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" required /></label><label>Confirm password<input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" placeholder="Repeat your password" required /></label>{error && <div className="auth-error" role="alert">{error}</div>}<button className="button button-primary auth-submit" disabled={busy}>{busy ? 'Saving profile...' : 'Finish account setup'}</button></form><small className="auth-note">Your username appears in the administrator dashboard. Email: {email || 'invited account'}</small></div></div>
 }
 
 function AuthGate({ onMemberView }) {
@@ -277,7 +279,7 @@ function ConnectionError({ message, onSignOut }) {
   return <div className="auth-shell"><div className="auth-card"><div className="brand-mark">A<span>R</span></div><span className="eyebrow">Supabase connection</span><h1>Workspace not ready.</h1><p>{message}</p><div className="auth-error">Check that the schema and <code>supabase/policies.sql</code> have both been run, and that this Auth user is present in <code>guild_admins</code>.</div><div className="modal-footer"><button className="button button-ghost" onClick={onSignOut}>Sign out</button><button className="button button-primary" onClick={() => window.location.reload()}>Try again</button></div></div></div>
 }
 
-function Sidebar({ active, onNavigate, userEmail, onSignOut, mobileNavOpen, onClose, ctaCount = 0 }) {
+function Sidebar({ active, onNavigate, userName, userEmail, onSignOut, mobileNavOpen, onClose, ctaCount = 0 }) {
   const nav = [['Dashboard', 'grid'], ['Daily regears', 'plan'], ['Members', 'users'], ['Armory', 'box']]
   return <><button className={`mobile-nav-overlay ${mobileNavOpen ? 'visible' : ''}`} onClick={onClose} aria-label="Close navigation" /><aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
     <button className="mobile-nav-close" onClick={onClose} aria-label="Close navigation"><Icon name="close" size={18} /></button>
@@ -288,7 +290,7 @@ function Sidebar({ active, onNavigate, userEmail, onSignOut, mobileNavOpen, onCl
     <div className="sidebar-public"><button className={`nav-item ${active === 'Member view' ? 'active' : ''}`} onClick={() => onNavigate('Member view')}><Icon name="eye" size={17} /><span>Member view</span></button></div>
     <div className="sidebar-bottom">
       <button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => onNavigate('Settings')}><Icon name="settings" size={17} /><span>Settings</span></button>
-      <div className="user-card"><div className="avatar avatar-admin">{userEmail?.[0]?.toUpperCase() || 'A'}</div><div className="user-meta"><strong>{userEmail || 'Administrator'}</strong><span>Administrator</span></div><button className="logout-button" onClick={onSignOut} aria-label="Log out" title="Log out">Log out</button></div>
+      <div className="user-card"><div className="avatar avatar-admin">{userName?.[0]?.toUpperCase() || 'A'}</div><div className="user-meta"><strong>{userName || 'Administrator'}</strong><span>{userEmail || 'Administrator'}</span></div><button className="logout-button" onClick={onSignOut} aria-label="Log out" title="Log out">Log out</button></div>
       <div className="version">v0.1 prototype <span>·</span> Supabase ready</div>
     </div>
   </aside></>
