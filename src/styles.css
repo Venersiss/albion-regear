@@ -128,6 +128,32 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .public-history-empty strong { color: #e2d2c4; font-family: 'Newsreader', serif; font-size: 21px; font-weight: 500; }
 .public-history-empty > span:last-child { max-width: 400px; font-size: 11px; line-height: 1.5; }
 @keyframes public-history-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.public-history-tools { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(180px, .65fr); gap: 12px; }
+.public-history-calendar, .public-history-filter { border: 1px solid rgba(255, 255, 255, .08); border-radius: 9px; padding: 14px; background: rgba(18, 17, 15, .5); }
+.public-calendar-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.public-calendar-heading strong { display: block; margin-top: 5px; color: #e5d4c5; font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; }
+.public-calendar-actions { display: flex; gap: 5px; }
+.public-calendar-actions button { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #554031; border-radius: 6px; color: #be8963; background: #2a201b; cursor: pointer; transition: border-color .2s ease, color .2s ease, background .2s ease; }
+.public-calendar-actions button:first-child .icon { transform: rotate(180deg); }
+.public-calendar-actions button:hover { border-color: #a86032; color: #f0ad72; background: #39251a; }
+.public-calendar-weekdays, .public-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.public-calendar-weekdays { margin-top: 15px; }
+.public-calendar-weekdays span { color: #75665d; font-family: 'DM Mono', monospace; font-size: 9px; text-align: center; text-transform: uppercase; }
+.public-calendar-grid { margin-top: 7px; }
+.public-calendar-day, .public-calendar-blank { min-width: 0; min-height: 42px; }
+.public-calendar-day { position: relative; border: 1px solid transparent; border-radius: 6px; color: #766960; background: transparent; font-size: 11px; cursor: default; }
+.public-calendar-day:disabled { opacity: .72; }
+.public-calendar-day.has-records { border-color: rgba(212, 119, 54, .25); color: #d9b293; background: rgba(89, 48, 28, .36); cursor: pointer; }
+.public-calendar-day.has-records:hover, .public-calendar-day.has-records.selected { border-color: #c26f39; color: #ffe0c3; background: rgba(126, 64, 32, .7); }
+.public-calendar-day i, .public-calendar-footer > span i { display: block; width: 5px; height: 5px; margin: 3px auto 0; border-radius: 50%; background: #d47736; box-shadow: 0 0 8px rgba(212, 119, 54, .72); }
+.public-calendar-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 11px; color: #8f7d70; font-family: 'DM Mono', monospace; font-size: 9px; }
+.public-calendar-footer > span { display: inline-flex; align-items: center; gap: 6px; }
+.public-calendar-footer > span i { flex: 0 0 auto; margin: 0; }
+.public-calendar-footer button { min-height: 36px; border: 0; padding: 0 5px; color: #b9825c; background: transparent; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
+.public-calendar-footer button:hover, .public-calendar-footer button.active { color: #f0ad72; }
+.public-history-filter { display: grid; align-content: center; gap: 8px; }
+.public-history-filter strong { color: #e3d2c4; font-family: 'Newsreader', serif; font-size: 21px; font-weight: 500; line-height: 1.1; }
+.public-history-filter > span:last-child { color: #97857a; font-size: 11px; }
 
 @media (max-width: 680px) {
   .auth-card { width: min(100%, 480px); }
@@ -142,6 +168,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .public-chest strong { font-size: 13px; }
   .public-history-button { grid-column: 1 / -1; justify-self: start; margin-left: 48px; }
   .public-history-heading h2 { font-size: 23px; }
+  .public-history-tools { grid-template-columns: 1fr; }
   .public-history-gear { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .public-member-footer { align-items: flex-start; flex-direction: column; gap: 7px; }
 }
