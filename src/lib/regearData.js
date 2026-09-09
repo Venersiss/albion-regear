@@ -214,7 +214,13 @@ export async function markRequestRegeared(guildId, requestId) {
   return regearedAt
 }
 
-export async function listAdminInvites(guildId) {
+export async function listAdminInvites(guildId, accessToken) {
+  if (accessToken) {
+    const response = await fetch('/api/admin-invites', { headers: { Authorization: `Bearer ${accessToken}` } })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || 'Could not load invitations.')
+    return result.invites || []
+  }
   const { data, error } = await supabase
     .from('admin_invites')
     .select('id, email, created_at, expires_at, accepted_at')

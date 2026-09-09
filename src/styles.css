@@ -71,6 +71,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .pending-copy { display: grid; gap: 4px; min-width: 0; flex: 1; }
 .pending-copy small { color: #81766d; font-family: 'DM Mono', monospace; font-size: 8px; }
 .invite-cancel { flex: 0 0 auto; min-height: 30px; padding: 0 9px; font-size: 8px; }
+.invite-tabs { display: flex; gap: 5px; margin-top: 22px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: #171411; }
+.invite-tabs button { flex: 1; min-height: 34px; border: 0; border-radius: 4px; background: transparent; color: #82776e; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
+.invite-tabs button:hover { color: #e1d5c9; }
+.invite-tabs button.selected { background: #30261e; color: #e1d5c9; box-shadow: inset 0 -2px var(--ember); }
+.invite-tabs button span { margin-left: 5px; color: var(--ember); }
 .regear-entry-list { display: grid; gap: 10px; }
 .regear-entry { padding: 16px 18px; }
 .regear-entry-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
