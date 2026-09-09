@@ -119,6 +119,23 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .public-search-hint { align-items: flex-start; flex-direction: column; gap: 6px; }
   .public-entry-copy p { font-size: 9px; }
 }
+
+/* Daily regear status tabs */
+.daily-status-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 16px 0 11px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: rgba(21, 18, 16, .9); }
+.daily-status-tab { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border: 1px solid transparent; border-radius: 5px; padding: 0 13px; color: #897d73; background: transparent; font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; cursor: pointer; transition: color .2s ease, background .2s ease, border-color .2s ease; }
+.daily-status-tab:hover { color: #d9c9bb; background: #261f1b; }
+.daily-status-tab strong { display: grid; min-width: 22px; height: 22px; place-items: center; border-radius: 50%; color: #8f8176; background: #2a2420; font-size: 9px; }
+.daily-status-tab-open.selected { border-color: rgba(212, 119, 54, .48); color: #efad76; background: rgba(83, 46, 26, .75); }
+.daily-status-tab-open.selected strong { color: #ffd5af; background: #794321; }
+.daily-status-tab-regeared.selected { border-color: rgba(126, 174, 129, .4); color: #a5c8a6; background: rgba(39, 65, 43, .68); }
+.daily-status-tab-regeared.selected strong { color: #d2ead3; background: #3e6444; }
+.daily-tab-panel .daily-request-section { animation: daily-tab-in .2s ease both; }
+@keyframes daily-tab-in { from { opacity: .35; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .daily-tab-panel .daily-request-section { animation: none; } }
+
+@media (max-width: 520px) {
+  .daily-status-tab { padding: 0 10px; font-size: 8px; }
+}
 .logout-button { margin-left: auto; border: 0; background: transparent; color: #c48a6c; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
 .logout-button:hover { color: #f0b6a7; }
 .daily-layout { display: grid; grid-template-columns: 245px minmax(0, 1fr); gap: 18px; align-items: start; }
