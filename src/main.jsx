@@ -216,9 +216,9 @@ function App() {
     <main className="main-content">
       <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} />
       {active === 'Dashboard' && <DashboardCasualty members={members} items={items} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={liveMarkRegeared} />}
-      {active === 'Daily regears' && <DailyRegears requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onMark={liveMarkRequestRegeared} onNotify={notify} />}
-      {active === 'Members' && <MembersCasualty members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
-      {active === 'Armory' && <ArmoryWithWeapons items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} />}
+      {active === 'Daily regears' && <DailyRegearsPaginated requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onMark={liveMarkRequestRegeared} onNotify={notify} />}
+      {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
+      {active === 'Armory' && <ArmoryWithWeaponsPaginated items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} />}
       {active === 'Settings' && <AdminSettings onNotify={notify} session={session} guild={guild} />}
       {active === 'Member view' && <MemberViewLive onNotify={notify} />}
     </main>
@@ -350,6 +350,79 @@ function dayKey(value) { const date = new Date(value); return [date.getFullYear(
 function readableDay(value) { return new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${value}T12:00:00`)) }
 function RegearEntry({ request, onMark }) { const itemRows = [['Weapon', request.weapon], ['Off hand', request.offHand], ['Headgear', request.helmet], ['Armor', request.armor], ['Boots', request.boots]].filter(([, value]) => value); return <article className="panel regear-entry"><div className="regear-entry-top"><div className="regear-member"><div className="avatar avatar-teal">{request.memberName?.[0]?.toUpperCase() || '?'}</div><div><h3>{request.memberName}</h3><span>{request.role} · Chest {request.chest}</span></div></div><span className={`status status-${request.status === 'regeared' ? 'green' : 'ember'}`}>{request.status === 'regeared' ? 'Regeared' : 'Open regear'}</span></div><div className="regear-entry-meta"><span>Died {new Date(request.diedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{request.regearedAt && <span>Regeared {new Date(request.regearedAt).toLocaleString()}</span>}</div><div className="regear-items">{itemRows.length ? itemRows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>) : <span>No replacement items selected</span>}</div>{request.status !== 'regeared' && <button type="button" className="button button-primary" onClick={() => onMark(request)}>Mark regeared</button>}</article> }
 function DailyRegears({ requests = [], onAdd, onMark }) { const today = dayKey(new Date()); const [selectedDay, setSelectedDay] = useState(today); const [memberFilter, setMemberFilter] = useState(''); const [roleFilter, setRoleFilter] = useState('All roles'); const days = Array.from(new Set([today, ...requests.map((request) => dayKey(request.diedAt))])).sort().reverse(); const dayRequests = requests.filter((request) => dayKey(request.diedAt) === selectedDay); const visibleRequests = dayRequests.filter((request) => request.memberName.toLowerCase().includes(memberFilter.toLowerCase()) && (roleFilter === 'All roles' || request.role === roleFilter)); return <div className="page"><PageIntro eyebrow="Casualty regear log" title="Daily regears" description="Open a day to see every member who died, the kit assigned to them, and what has already been regeared." action="Add regear" onAction={() => onAdd(selectedDay)} /><div className="daily-layout"><aside className="panel day-list"><div className="day-list-heading"><span className="eyebrow">Death dates</span><strong>{days.length} days</strong></div>{days.map((day) => { const count = requests.filter((request) => dayKey(request.diedAt) === day); const open = count.filter((request) => request.status !== 'regeared').length; return <button type="button" className={`day-button ${selectedDay === day ? 'selected' : ''}`} key={day} onClick={() => setSelectedDay(day)}><span>{readableDay(day)}</span><small>{count.length} regears · {open} open</small></button> })}<label className="new-day-field">Open another date<input type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)} /></label></aside><section className="daily-detail"><div className="daily-detail-heading"><div><span className="eyebrow">Selected death date</span><h2>{readableDay(selectedDay)}</h2><p>{visibleRequests.length} shown · {dayRequests.length} total regear records for this day.</p></div><button type="button" className="button button-primary" onClick={() => onAdd(selectedDay)}>Add member regear</button></div><div className="daily-filters"><label>Filter by member<input value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Type a character name" /></label><label>Filter by role<select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label></div><div className="regear-entry-list">{visibleRequests.map((request) => <RegearEntry key={request.id} request={request} onMark={onMark} />)}{!visibleRequests.length && <EmptyState text={dayRequests.length ? 'No regear records match these filters.' : 'No deaths recorded for this date. Add a member regear when a casualty is reported.'} />}</div></section></div></div> }
+
+function Pagination({ page, pageSize, total, onPageChange }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  if (totalPages <= 1 || total === 0) return null
+  const safePage = Math.min(page, totalPages)
+  const first = (safePage - 1) * pageSize + 1
+  const last = Math.min(safePage * pageSize, total)
+  const pageNumbers = totalPages <= 7 ? Array.from({ length: totalPages }, (_, index) => index + 1) : Array.from(new Set([1, safePage - 1, safePage, safePage + 1, totalPages])).filter((number) => number > 0 && number <= totalPages).sort((a, b) => a - b)
+  return <nav className="pagination" aria-label="Pagination"><span>Showing {first}–{last} of {total}</span><div className="pagination-controls"><button type="button" onClick={() => onPageChange(safePage - 1)} disabled={safePage === 1} aria-label="Previous page">Previous</button>{pageNumbers.map((number, index) => <React.Fragment key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <span className="pagination-gap">…</span>}<button type="button" className={number === safePage ? 'current' : ''} onClick={() => onPageChange(number)} aria-current={number === safePage ? 'page' : undefined} aria-label={`Page ${number}`}>{number}</button></React.Fragment>)}<button type="button" onClick={() => onPageChange(safePage + 1)} disabled={safePage === totalPages} aria-label="Next page">Next</button></div></nav>
+}
+
+function DailyRegearsPaginated({ requests = [], onAdd, onMark }) {
+  const today = dayKey(new Date())
+  const [selectedDay, setSelectedDay] = useState(today)
+  const [memberFilter, setMemberFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState('All roles')
+  const [page, setPage] = useState(1)
+  const pageSize = 8
+  const days = Array.from(new Set([today, ...requests.map((request) => dayKey(request.diedAt))])).sort().reverse()
+  const dayRequests = requests.filter((request) => dayKey(request.diedAt) === selectedDay)
+  const visibleRequests = dayRequests.filter((request) => request.memberName.toLowerCase().includes(memberFilter.toLowerCase()) && (roleFilter === 'All roles' || request.role === roleFilter))
+  const totalPages = Math.max(1, Math.ceil(visibleRequests.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageRequests = visibleRequests.slice((safePage - 1) * pageSize, safePage * pageSize)
+  useEffect(() => { setPage(1) }, [selectedDay, memberFilter, roleFilter])
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  return <div className="page"><PageIntro eyebrow="Casualty regear log" title="Daily regears" description="Open a day to see every member who died, the kit assigned to them, and what has already been regeared." action="Add regear" onAction={() => onAdd(selectedDay)} /><div className="daily-layout"><aside className="panel day-list"><div className="day-list-heading"><span className="eyebrow">Death dates</span><strong>{days.length} days</strong></div>{days.map((day) => { const count = requests.filter((request) => dayKey(request.diedAt) === day); const open = count.filter((request) => request.status !== 'regeared').length; return <button type="button" className={`day-button ${selectedDay === day ? 'selected' : ''}`} key={day} onClick={() => setSelectedDay(day)}><span>{readableDay(day)}</span><small>{count.length} regears · {open} open</small></button> })}<label className="new-day-field">Open another date<input type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)} /></label></aside><section className="daily-detail"><div className="daily-detail-heading"><div><span className="eyebrow">Selected death date</span><h2>{readableDay(selectedDay)}</h2><p>{visibleRequests.length} shown · {dayRequests.length} total regear records for this day.</p></div><button type="button" className="button button-primary" onClick={() => onAdd(selectedDay)}>Add member regear</button></div><div className="daily-filters"><label>Filter by member<input value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Type a character name" /></label><label>Filter by role<select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label></div><div className="regear-entry-list">{pageRequests.map((request) => <RegearEntry key={request.id} request={request} onMark={onMark} />)}{!visibleRequests.length && <EmptyState text={dayRequests.length ? 'No regear records match these filters.' : 'No deaths recorded for this date. Add a member regear when a casualty is reported.'} />}</div><Pagination page={safePage} pageSize={pageSize} total={visibleRequests.length} onPageChange={setPage} /></section></div></div>
+}
+
+function MembersPaginated({ members, onOpenMember, onMark, onUpdateChest, onRemove }) {
+  const [roleFilter, setRoleFilter] = useState('All roles')
+  const [page, setPage] = useState(1)
+  const pageSize = 12
+  const roles = ['All roles', ...roleOptions]
+  const visibleMembers = roleFilter === 'All roles' ? members : members.filter((member) => (member.regearRole || member.role) === roleFilter)
+  const totalPages = Math.max(1, Math.ceil(visibleMembers.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageMembers = visibleMembers.slice((safePage - 1) * pageSize, safePage * pageSize)
+  useEffect(() => { setPage(1) }, [members, roleFilter])
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  return <div className="page"><PageIntro eyebrow="Roster management" title="Members" description="Search members, edit their issue chest, and manage only active casualty regears." action="Add member" onAction={onOpenMember} /><div className="member-toolbar"><div className="member-count"><strong>{visibleMembers.length}</strong> members <span>·</span> <b>{visibleMembers.filter((member) => member.status === 'Open regear').length} open regears</b></div><div className="member-toolbar-actions"><div className="role-filters">{roles.map((role) => <button type="button" key={role} className={roleFilter === role ? 'selected' : ''} onClick={() => setRoleFilter(role)}>{role}</button>)}</div></div></div><section className="member-card-grid">{pageMembers.map((member) => <MemberCardCasualty key={member.id || member.name} member={member} onMark={onMark} onUpdateChest={onUpdateChest} onRemove={onRemove} />)}{!visibleMembers.length && <EmptyState text="No members match this filter." />}</section><Pagination page={safePage} pageSize={pageSize} total={visibleMembers.length} onPageChange={setPage} /></div>
+}
+
+function ArmoryWithWeaponsPaginated({ items, onNotify, onAddWeapon }) {
+  const [page, setPage] = useState(1)
+  const pageSize = 12
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageItems = items.slice((safePage - 1) * pageSize, safePage * pageSize)
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  return <div className="armory-stack"><ArmoryPaginated items={items} pageItems={pageItems} page={safePage} pageSize={pageSize} onPageChange={setPage} onNotify={onNotify} onAddItem={onAddWeapon} /><WeaponLibraryPaginated items={items} onAddWeapon={onAddWeapon} /></div>
+}
+
+function ArmoryPaginated({ items, pageItems, page, pageSize, onPageChange, onNotify, onAddItem }) {
+  const totalStock = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+  const minimumStock = items.reduce((sum, item) => sum + Number(item.minimumQuantity || 0), 0)
+  const healthy = items.length ? Math.round(items.reduce((sum, item) => sum + Number(item.percentage || 0), 0) / items.length) : 0
+  const lowStock = items.filter((item) => item.tone === 'low').length
+  return <div className="page"><PageIntro eyebrow="Guild inventory" title="Armory" description="The item catalog is stored in Supabase. Items belong to the guild chest; member issue chests are managed from Members." action="Add item" onAction={onAddItem} /><div className="armory-overview"><div className="panel inventory-total"><span className="eyebrow">Catalog items</span><strong>{items.length}</strong><p>{totalStock} units tracked</p></div><div className="panel inventory-total"><span className="eyebrow">Needs restock</span><strong className="ember-text">{String(lowStock).padStart(2, '0')}</strong><p>{minimumStock} minimum units recorded</p></div><div className="panel inventory-total"><span className="eyebrow">Stock health</span><strong className="time-value">{healthy}%</strong><p>Calculated from saved quantities</p></div></div><section className="panel inventory-table"><div className="table-header"><span>Item</span><span>Category</span><span>Stock</span><span>Health</span><span /></div>{pageItems.map(({ id, name, category, stock, percentage, tone }) => <div className="inventory-row" key={id || name}><div className="item-cell"><div className={`item-icon item-${tone}`}><Icon name={category === 'Weapon' ? 'swords' : 'box'} size={16} /></div><strong>{name}</strong></div><span>{category}</span><span>{stock}</span><div className="health-cell"><div className="mini-bar"><i className={`bar-${tone}`} style={{ width: `${percentage}%` }} /></div><span>{percentage}%</span></div><button type="button" className="more-button" onClick={() => onNotify(`${name} details opened`)} aria-label={`Open ${name}`}><Icon name="more" size={16} /></button></div>)}{!items.length && <EmptyState text="No items are saved yet. Add the first catalog item." />}</section><Pagination page={page} pageSize={pageSize} total={items.length} onPageChange={onPageChange} /></div>
+}
+
+function WeaponLibraryPaginated({ items, onAddWeapon }) {
+  const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+  const weapons = items.filter((item) => item.category === 'Weapon' && item.name.toLowerCase().includes(query.toLowerCase()))
+  const totalPages = Math.max(1, Math.ceil(weapons.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageWeapons = weapons.slice((safePage - 1) * pageSize, safePage * pageSize)
+  useEffect(() => { setPage(1) }, [query])
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  return <div className="page weapon-library-page"><section className="panel weapon-library"><div className="weapon-library-heading"><div><span className="eyebrow">Reusable CTA catalog</span><h2>Weapon library</h2><p>Saved weapon names can be found in every future death report.</p></div><button type="button" className="button button-primary" onClick={onAddWeapon}><Icon name="plus" size={15} />Add weapon</button></div><label className="weapon-search"><Icon name="search" size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search saved weapons..." aria-label="Search saved weapons" /></label><div className="weapon-library-list">{pageWeapons.map((item) => <div className="weapon-library-row" key={item.id || item.name}><div className="item-icon item-good"><Icon name="swords" size={15} /></div><div><strong>{item.name}</strong><span>{item.stock} in guild chest</span></div><span className="status status-blue">Weapon</span></div>)}{!weapons.length && <EmptyState text={query ? 'No saved weapons match this search.' : 'No weapons saved yet. Add the first one to build your catalog.'} />}</div><Pagination page={safePage} pageSize={pageSize} total={weapons.length} onPageChange={setPage} /></section></div>
+}
 
 function PlansLive({ plans = [], onOpenPlan, onNotify }) {
   const [filter, setFilter] = useState('All')

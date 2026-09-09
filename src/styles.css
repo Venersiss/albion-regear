@@ -125,3 +125,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .member-card-actions { flex-wrap: wrap; justify-content: flex-end; }
   .armory-stack .inventory-table .table-header, .armory-stack .inventory-table .inventory-row { min-width: 560px; }
 }
+
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 2px 0; border-top: 1px solid var(--line); color: #81766d; font-family: 'DM Mono', monospace; font-size: 8px; }
+.pagination-controls { display: flex; align-items: center; gap: 4px; }
+.pagination-gap { display: grid; min-width: 18px; place-items: center; color: #756b63; }
+.pagination button { min-width: 36px; min-height: 36px; border: 1px solid var(--line); border-radius: 5px; background: #171411; color: #a99c91; font-family: inherit; font-size: 9px; cursor: pointer; }
+.pagination button:hover:not(:disabled), .pagination button.current { border-color: #805237; background: #302119; color: #f0dfd0; }
+.pagination button:disabled { cursor: not-allowed; opacity: .4; }
+@media (max-width: 520px) { .pagination { align-items: stretch; flex-direction: column; }.pagination-controls { justify-content: space-between; }.pagination button { min-height: 44px; flex: 1; } }
