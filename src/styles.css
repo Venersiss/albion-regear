@@ -157,6 +157,42 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .item-action-danger { color: #b78379; }
 .item-action-danger:hover { border-color: #985a50; color: #e3a399; background: #321f1d; }
 @media (max-width: 540px) { .armory-category-tabs { margin-top: 0; }.armory-category-tabs button { min-height: 42px; padding: 0 10px; }.armory-stack .inventory-table .table-header, .armory-stack .inventory-table .inventory-row { min-width: 680px; } }
+
+/* Readability pass: keep the dense operations UI comfortable to scan. */
+body { font-size: 13px; }
+.eyebrow, .nav-label { font-size: 11px; }
+.nav-item { font-size: 13px; }
+.button { font-size: 11px; }
+.search input { font-size: 12px; }
+.page-intro p { font-size: 13px; }
+.member-count { font-size: 11px; }
+.member-count strong { font-size: 16px; }
+.table-header { font-size: 10px; }
+.roster-row, .inventory-row { font-size: 11px; }
+.member-cell strong, .item-cell strong { font-size: 12px; }
+.member-cell span, .item-tier, .last-cell small { font-size: 10px; }
+.status { padding: 6px 8px; font-size: 10px; }
+.daily-filters label { font-size: 10px; }
+.daily-filters input, .daily-filters select { font-size: 12px; }
+.regear-member span, .regear-entry-meta { font-size: 10px; }
+.regear-items span { font-size: 10px; }
+.regear-items strong { font-size: 11px; }
+.field-help, .member-card-footer > span, .pagination { font-size: 10px; }
+.pagination button { font-size: 10px; }
+.armory-category-tabs button { font-size: 10px; }
+.weapon-library-heading p, .weapon-library-row span:not(.status) { font-size: 10px; }
+.weapon-library-row strong { font-size: 12px; }
+.member-card-footer .button { font-size: 10px; }
+.dashboard-queue-person span, .dashboard-queue-person small { font-size: 10px; }
+.dashboard-purpose p, .dashboard-shortcut small { font-size: 10px; }
+.public-result-role, .public-result-main small, .public-member-footer, .public-search-hint { font-size: 10px; }
+
+@media (max-width: 540px) {
+  .page-intro p { font-size: 12px; }
+  .member-count { font-size: 10px; }
+  .member-cell strong, .item-cell strong { font-size: 12px; }
+  .status { font-size: 9px; }
+}
 .logout-button { margin-left: auto; border: 0; background: transparent; color: #c48a6c; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; }
 .logout-button:hover { color: #f0b6a7; }
 .daily-layout { display: grid; grid-template-columns: 245px minmax(0, 1fr); gap: 18px; align-items: start; }
