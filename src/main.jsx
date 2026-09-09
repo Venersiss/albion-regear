@@ -113,19 +113,21 @@ function App() {
 
   const liveMarkRegeared = async (name) => {
     const member = members.find((entry) => entry.name === name)
+    const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
     try {
-      const regearedAt = live && member?.requestId ? await markRequestRegeared(guild.id, member.requestId) : new Date().toISOString()
-      setMembers((current) => current.map((entry) => entry.name === name ? { ...entry, status: 'No open request', last: 'Just now', issuedBy: session?.user?.email || 'Administrator' } : entry))
-      setRegearRequests((current) => current.map((request) => request.id === member?.requestId ? { ...request, status: 'regeared', regearedAt } : request))
+      const completion = live && member?.requestId ? await markRequestRegeared(guild.id, member.requestId, admin) : { regearedAt: new Date().toISOString(), regearedBy: admin.username || admin.email || 'Administrator' }
+      setMembers((current) => current.map((entry) => entry.name === name ? { ...entry, status: 'No open request', last: 'Just now', issuedBy: completion.regearedBy } : entry))
+      setRegearRequests((current) => current.map((request) => request.id === member?.requestId ? { ...request, status: 'regeared', regearedAt: completion.regearedAt, regearedBy: completion.regearedBy } : request))
       notify(`${name} marked as regeared`)
     } catch (error) { notify(error.message || 'Could not update the regear request') }
   }
 
   const liveMarkRequestRegeared = async (request) => {
+    const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
     try {
-      const regearedAt = live ? await markRequestRegeared(guild.id, request.id) : new Date().toISOString()
-      setRegearRequests((current) => current.map((entry) => entry.id === request.id ? { ...entry, status: 'regeared', regearedAt } : entry))
-      setMembers((current) => current.map((entry) => entry.requestId === request.id ? { ...entry, status: 'No open request', last: 'Just now', issuedBy: session?.user?.email || 'Administrator' } : entry))
+      const completion = live ? await markRequestRegeared(guild.id, request.id, admin) : { regearedAt: new Date().toISOString(), regearedBy: admin.username || admin.email || 'Administrator' }
+      setRegearRequests((current) => current.map((entry) => entry.id === request.id ? { ...entry, status: 'regeared', regearedAt: completion.regearedAt, regearedBy: completion.regearedBy } : entry))
+      setMembers((current) => current.map((entry) => entry.requestId === request.id ? { ...entry, status: 'No open request', last: 'Just now', issuedBy: completion.regearedBy } : entry))
       notify(`${request.memberName} marked as regeared`)
     } catch (error) { notify(error.message || 'Could not update the regear request') }
   }
@@ -362,7 +364,11 @@ function EmptyState({ text }) { return <div className="empty-state"><Icon name="
 
 function dayKey(value) { const date = new Date(value); return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-') }
 function readableDay(value) { return new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${value}T12:00:00`)) }
-function RegearEntry({ request, onMark }) { const itemRows = [['Weapon', request.weapon], ['Off hand', request.offHand], ['Headgear', request.helmet], ['Armor', request.armor], ['Boots', request.boots]].filter(([, value]) => value); return <article className="panel regear-entry"><div className="regear-entry-top"><div className="regear-member"><div className="avatar avatar-teal">{request.memberName?.[0]?.toUpperCase() || '?'}</div><div><h3>{request.memberName}</h3><span>{request.role} · Chest {request.chest}</span></div></div><span className={`status status-${request.status === 'regeared' ? 'green' : 'ember'}`}>{request.status === 'regeared' ? 'Regeared' : 'Open regear'}</span></div><div className="regear-entry-meta"><span>Died {new Date(request.diedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{request.regearedAt && <span>Regeared {new Date(request.regearedAt).toLocaleString()}</span>}</div><div className="regear-items">{itemRows.length ? itemRows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>) : <span>No replacement items selected</span>}</div>{request.status !== 'regeared' && <button type="button" className="button button-primary" onClick={() => onMark(request)}>Mark regeared</button>}</article> }
+function RegearEntry({ request, onMark }) {
+  const itemRows = [['Weapon', request.weapon], ['Off hand', request.offHand], ['Headgear', request.helmet], ['Armor', request.armor], ['Boots', request.boots]].filter(([, value]) => value)
+  const completionLabel = request.regearedAt ? `Regeared ${new Date(request.regearedAt).toLocaleString()}${request.regearedBy ? ` by ${request.regearedBy}` : ''}` : null
+  return <article className="panel regear-entry"><div className="regear-entry-top"><div className="regear-member"><div className="avatar avatar-teal">{request.memberName?.[0]?.toUpperCase() || '?'}</div><div><h3>{request.memberName}</h3><span>{request.role} · Chest {request.chest}</span></div></div><span className={`status status-${request.status === 'regeared' ? 'green' : 'ember'}`}>{request.status === 'regeared' ? 'Regeared' : 'Open regear'}</span></div><div className="regear-entry-meta"><span>Died {new Date(request.diedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{completionLabel && <span>{completionLabel}</span>}</div><div className="regear-items">{itemRows.length ? itemRows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>) : <span>No replacement items selected</span>}</div>{request.status !== 'regeared' && <button type="button" className="button button-primary" onClick={() => onMark(request)}>Mark regeared</button>}</article>
+}
 function DailyRegears({ requests = [], onAdd, onMark }) { const today = dayKey(new Date()); const [selectedDay, setSelectedDay] = useState(today); const [memberFilter, setMemberFilter] = useState(''); const [roleFilter, setRoleFilter] = useState('All roles'); const days = Array.from(new Set([today, ...requests.map((request) => dayKey(request.diedAt))])).sort().reverse(); const dayRequests = requests.filter((request) => dayKey(request.diedAt) === selectedDay); const visibleRequests = dayRequests.filter((request) => request.memberName.toLowerCase().includes(memberFilter.toLowerCase()) && (roleFilter === 'All roles' || request.role === roleFilter)); return <div className="page"><PageIntro eyebrow="Casualty regear log" title="Daily regears" description="Open a day to see every member who died, the kit assigned to them, and what has already been regeared." action="Add regear" onAction={() => onAdd(selectedDay)} /><div className="daily-layout"><aside className="panel day-list"><div className="day-list-heading"><span className="eyebrow">Death dates</span><strong>{days.length} days</strong></div>{days.map((day) => { const count = requests.filter((request) => dayKey(request.diedAt) === day); const open = count.filter((request) => request.status !== 'regeared').length; return <button type="button" className={`day-button ${selectedDay === day ? 'selected' : ''}`} key={day} onClick={() => setSelectedDay(day)}><span>{readableDay(day)}</span><small>{count.length} regears · {open} open</small></button> })}<label className="new-day-field">Open another date<input type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)} /></label></aside><section className="daily-detail"><div className="daily-detail-heading"><div><span className="eyebrow">Selected death date</span><h2>{readableDay(selectedDay)}</h2><p>{visibleRequests.length} shown · {dayRequests.length} total regear records for this day.</p></div><button type="button" className="button button-primary" onClick={() => onAdd(selectedDay)}>Add member regear</button></div><div className="daily-filters"><label>Filter by member<input value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Type a character name" /></label><label>Filter by role<select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label></div><div className="regear-entry-list">{visibleRequests.map((request) => <RegearEntry key={request.id} request={request} onMark={onMark} />)}{!visibleRequests.length && <EmptyState text={dayRequests.length ? 'No regear records match these filters.' : 'No deaths recorded for this date. Add a member regear when a casualty is reported.'} />}</div></section></div></div> }
 
 function Pagination({ page, pageSize, total, onPageChange }) {
@@ -375,7 +381,31 @@ function Pagination({ page, pageSize, total, onPageChange }) {
   return <nav className="pagination" aria-label="Pagination"><span>Showing {first}–{last} of {total}</span><div className="pagination-controls"><button type="button" onClick={() => onPageChange(safePage - 1)} disabled={safePage === 1} aria-label="Previous page">Previous</button>{pageNumbers.map((number, index) => <React.Fragment key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <span className="pagination-gap">…</span>}<button type="button" className={number === safePage ? 'current' : ''} onClick={() => onPageChange(number)} aria-current={number === safePage ? 'page' : undefined} aria-label={`Page ${number}`}>{number}</button></React.Fragment>)}<button type="button" onClick={() => onPageChange(safePage + 1)} disabled={safePage === totalPages} aria-label="Next page">Next</button></div></nav>
 }
 
+function DailyRequestSection({ title, description, requests, emptyText, onMark, closed = false }) {
+  const [page, setPage] = useState(1)
+  const pageSize = 8
+  const totalPages = Math.max(1, Math.ceil(requests.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageRequests = requests.slice((safePage - 1) * pageSize, safePage * pageSize)
+  useEffect(() => { setPage(1) }, [requests])
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  return <section className={`daily-request-section ${closed ? 'daily-request-section-closed' : 'daily-request-section-open'}`}><div className="daily-request-heading"><div><h3>{title}</h3><p>{description}</p></div><span>{requests.length} {requests.length === 1 ? 'record' : 'records'}</span></div><div className="regear-entry-list">{pageRequests.map((request) => <RegearEntry key={request.id} request={request} onMark={onMark} />)}{!requests.length && <EmptyState text={emptyText} />}</div><Pagination page={safePage} pageSize={pageSize} total={requests.length} onPageChange={setPage} /></section>
+}
+
 function DailyRegearsPaginated({ requests = [], onAdd, onMark }) {
+  const today = dayKey(new Date())
+  const [selectedDay, setSelectedDay] = useState(today)
+  const [memberFilter, setMemberFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState('All roles')
+  const days = Array.from(new Set([today, ...requests.map((request) => dayKey(request.diedAt))])).sort().reverse()
+  const dayRequests = requests.filter((request) => dayKey(request.diedAt) === selectedDay)
+  const visibleRequests = dayRequests.filter((request) => (request.memberName || '').toLowerCase().includes(memberFilter.toLowerCase()) && (roleFilter === 'All roles' || request.role === roleFilter))
+  const openRequests = visibleRequests.filter((request) => request.status !== 'regeared')
+  const regearedRequests = visibleRequests.filter((request) => request.status === 'regeared')
+  return <div className="page"><PageIntro eyebrow="Casualty regear log" title="Daily regears" description="Open a day to see who died, which kit is assigned, and which requests have been closed." action="Add regear" onAction={() => onAdd(selectedDay)} /><div className="daily-layout"><aside className="panel day-list"><div className="day-list-heading"><span className="eyebrow">Death dates</span><strong>{days.length} days</strong></div>{days.map((day) => { const count = requests.filter((request) => dayKey(request.diedAt) === day); const open = count.filter((request) => request.status !== 'regeared').length; return <button type="button" className={`day-button ${selectedDay === day ? 'selected' : ''}`} key={day} onClick={() => setSelectedDay(day)}><span>{readableDay(day)}</span><small>{count.length} regears · {open} open</small></button> })}<label className="new-day-field">Open another date<input type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)} /></label></aside><section className="daily-detail"><div className="daily-detail-heading"><div><span className="eyebrow">Selected death date</span><h2>{readableDay(selectedDay)}</h2><p>{openRequests.length} open · {regearedRequests.length} regeared · {dayRequests.length} total records.</p></div><button type="button" className="button button-primary" onClick={() => onAdd(selectedDay)}>Add member regear</button></div><div className="daily-filters"><label>Filter by member<input value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Type a character name" /></label><label>Filter by role<select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label></div><div className="daily-request-sections"><DailyRequestSection title="Open regears" description="Members still waiting for replacement kit." requests={openRequests} emptyText={dayRequests.length ? 'No open records match these filters.' : 'No open deaths recorded for this date.'} onMark={onMark} /><DailyRequestSection title="Closed and regeared" description="Completed requests, including who closed them." requests={regearedRequests} emptyText={dayRequests.length ? 'No closed records match these filters.' : 'No regeared records for this date.'} onMark={onMark} closed /></div></section></div></div>
+}
+
+function DailyRegearsPaginatedOld({ requests = [], onAdd, onMark }) {
   const today = dayKey(new Date())
   const [selectedDay, setSelectedDay] = useState(today)
   const [memberFilter, setMemberFilter] = useState('')

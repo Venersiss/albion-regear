@@ -124,6 +124,8 @@ create table if not exists public.regear_requests (
   issued_by uuid references auth.users(id) on delete set null,
   issued_at timestamptz,
   regeared_at timestamptz,
+  regeared_by uuid references auth.users(id) on delete set null,
+  regeared_by_name text,
   created_at timestamptz not null default now()
 );
 

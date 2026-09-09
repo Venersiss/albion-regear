@@ -28,7 +28,7 @@ export function toUiMember(row, requests = [], guildName = 'Coup De Grace') {
     status: open ? 'Open regear' : 'No open request',
     chest: row.issue_chest || 'Unassigned',
     last: request ? displayDate(request.regeared_at || request.created_at) : 'Not yet',
-    issuedBy: request?.issued_by ? 'Administrator' : 'Pending',
+    issuedBy: request?.regeared_by_name || (request?.issued_by ? 'Administrator' : 'Pending'),
     deathNote: request?.death_note || '',
     regearRole: request?.role,
     regearItems: [request?.weapon, request?.off_hand, request?.helmet, request?.armor, request?.boots].filter(Boolean),
@@ -89,6 +89,7 @@ export function toUiRequest(row, members = []) {
     boots: row.boots,
     silverCost: row.silver_cost || 0,
     regearedAt: row.regeared_at,
+    regearedBy: row.regeared_by_name || '',
   }
 }
 
@@ -204,14 +205,18 @@ export async function insertRegearRequest(guildId, request) {
   return data
 }
 
-export async function markRequestRegeared(guildId, requestId) {
+export async function markRequestRegeared(guildId, requestId, admin = {}) {
   const regearedAt = new Date().toISOString()
+  const adminName = admin.username || admin.email || 'Administrator'
   const { error } = await supabase.from('regear_requests').update({
     status: 'regeared',
     regeared_at: regearedAt,
+    issued_by: admin.id || null,
+    regeared_by: admin.id || null,
+    regeared_by_name: adminName,
   }).eq('id', requestId).eq('guild_id', guildId)
   if (error) throw error
-  return regearedAt
+  return { regearedAt, regearedBy: adminName }
 }
 
 export async function listAdminInvites(guildId, accessToken) {
