@@ -971,7 +971,9 @@ function notificationIcon(type) {
 }
 
 function toAdminNotification(row, currentUserId) {
-  return { id: row.id, type: row.type || 'activity', title: row.title || 'Guild activity', body: row.body || '', actorId: row.actor_id, createdAt: row.created_at, isRead: row.actor_id === currentUserId }
+  const actorName = row.actor_name || 'Administrator'
+  const body = row.type === 'admin_presence' ? `${actorName} is now active in the workspace.` : row.body || ''
+  return { id: row.id, type: row.type || 'activity', title: row.title || 'Guild activity', body, actorName, actorId: row.actor_id, createdAt: row.created_at, isRead: row.actor_id === currentUserId }
 }
 
 function AdminNotificationCenter({ open, onClose, session, guild, onUnreadChange, onSelect }) {
@@ -985,7 +987,7 @@ function AdminNotificationCenter({ open, onClose, session, guild, onUnreadChange
     let mounted = true
     setLoading(true)
     Promise.all([
-      supabase.from('admin_notifications').select('id, type, title, body, actor_id, created_at').eq('guild_id', guild.id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('admin_notifications').select('id, type, title, body, actor_name, actor_id, created_at').eq('guild_id', guild.id).order('created_at', { ascending: false }).limit(100),
       supabase.from('admin_notification_reads').select('notification_id').eq('user_id', currentUserId),
     ]).then(([notificationsResult, readsResult]) => {
       if (!mounted) return

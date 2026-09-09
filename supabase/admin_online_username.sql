@@ -1,41 +1,5 @@
--- Run this once in the Supabase SQL Editor for an existing Coup De Grace project.
--- Creates persistent admin activity notifications and Realtime delivery.
-
-create table if not exists public.admin_notifications (
-  id uuid primary key default gen_random_uuid(),
-  guild_id uuid not null references public.guilds(id) on delete cascade,
-  actor_id uuid references auth.users(id) on delete set null,
-  actor_name text not null default 'Administrator',
-  type text not null default 'activity',
-  title text not null,
-  body text not null,
-  entity_id uuid,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists admin_notifications_guild_created_idx
-  on public.admin_notifications(guild_id, created_at desc);
-
-create table if not exists public.admin_notification_reads (
-  notification_id uuid not null references public.admin_notifications(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  read_at timestamptz not null default now(),
-  primary key (notification_id, user_id)
-);
-
-alter table public.admin_notifications enable row level security;
-alter table public.admin_notification_reads enable row level security;
-
-drop policy if exists guild_admins_read_notifications on public.admin_notifications;
-create policy guild_admins_read_notifications
-on public.admin_notifications for select to authenticated
-using (public.is_guild_admin(guild_id));
-
-drop policy if exists guild_admins_manage_notification_reads on public.admin_notification_reads;
-create policy guild_admins_manage_notification_reads
-on public.admin_notification_reads for all to authenticated
-using (public.is_guild_admin((select guild_id from public.admin_notifications where id = notification_id)))
-with check (public.is_guild_admin((select guild_id from public.admin_notifications where id = notification_id)) and user_id = auth.uid());
+-- Run this once in Supabase SQL Editor for existing Coup De Grace projects.
+-- Makes persisted online notifications identify the administrator by username.
 
 create or replace function public.record_admin_notification()
 returns trigger
@@ -132,45 +96,3 @@ end;
 $$;
 
 revoke all on function public.record_admin_notification() from public;
-
-drop trigger if exists admin_notifications_presence_trigger on public.admin_presence;
-create trigger admin_notifications_presence_trigger
-after insert or update on public.admin_presence
-for each row execute function public.record_admin_notification();
-
-drop trigger if exists admin_notifications_messages_trigger on public.admin_messages;
-create trigger admin_notifications_messages_trigger
-after insert on public.admin_messages
-for each row execute function public.record_admin_notification();
-
-drop trigger if exists admin_notifications_invites_trigger on public.admin_invites;
-create trigger admin_notifications_invites_trigger
-after insert on public.admin_invites
-for each row execute function public.record_admin_notification();
-
-drop trigger if exists admin_notifications_members_trigger on public.members;
-create trigger admin_notifications_members_trigger
-after insert or update or delete on public.members
-for each row execute function public.record_admin_notification();
-
-drop trigger if exists admin_notifications_items_trigger on public.items;
-create trigger admin_notifications_items_trigger
-after insert or update or delete on public.items
-for each row execute function public.record_admin_notification();
-
-drop trigger if exists admin_notifications_requests_trigger on public.regear_requests;
-create trigger admin_notifications_requests_trigger
-after insert or update or delete on public.regear_requests
-for each row execute function public.record_admin_notification();
-
-drop trigger if exists admin_notifications_plans_trigger on public.regear_plans;
-create trigger admin_notifications_plans_trigger
-after insert or update or delete on public.regear_plans
-for each row execute function public.record_admin_notification();
-
-do $$
-begin
-  alter publication supabase_realtime add table public.admin_notifications;
-exception
-  when duplicate_object then null;
-end $$;
