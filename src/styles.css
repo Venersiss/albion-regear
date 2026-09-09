@@ -633,6 +633,7 @@ body { font-size: 13px; }
 /* Facebook-style activity popover for the admin workspace. */
 .notification-launcher { min-width: 34px; min-height: 34px; cursor: pointer; }
 .notification-unread { position: absolute; top: -4px; right: -6px; display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border: 2px solid #171411; border-radius: 9px; color: #fff1e5; background: var(--ember); font-family: 'DM Mono', monospace; font-size: 8px; line-height: 1; }
+.notification-unread-dot { position: absolute; top: 1px; right: 0; width: 7px; height: 7px; border: 2px solid #171411; border-radius: 50%; background: #f08a43 !important; box-shadow: 0 0 10px rgba(240, 138, 67, .9); }
 .notification-popover-backdrop { position: fixed; z-index: 41; inset: 0; border: 0; background: transparent; }
 .notification-popover { position: fixed; z-index: 42; top: 61px; right: 35px; width: min(390px, calc(100vw - 28px)); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-height: min(640px, calc(100vh - 82px)); overflow: hidden; border: 1px solid #59402f; border-radius: 10px; background: linear-gradient(160deg, #2a201b, #171513 38%, #141312); box-shadow: 0 22px 70px rgba(0, 0, 0, .5); animation: notification-popover-in .18s ease both; }
 .notification-popover-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 20px 20px 16px; border-bottom: 1px solid rgba(255, 255, 255, .09); }
