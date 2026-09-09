@@ -225,7 +225,7 @@ function App() {
   if (isSupabaseConfigured && session && liveError && !guild) return <ConnectionError message={liveError} onSignOut={() => supabase.auth.signOut()} />
 
   return <div className="app-shell">
-    <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.length} />
+    <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.filter((request) => request.status !== 'regeared').length} />
     <main className="main-content">
       <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} />
       {active === 'Dashboard' && <DashboardCasualty members={members} items={items} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={liveMarkRegeared} />}
