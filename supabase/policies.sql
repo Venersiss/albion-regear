@@ -38,6 +38,15 @@ on public.admin_messages for all to authenticated
 using (public.is_guild_admin(guild_id))
 with check (public.is_guild_admin(guild_id));
 
+create policy guild_admins_read_notifications
+on public.admin_notifications for select to authenticated
+using (public.is_guild_admin(guild_id));
+
+create policy guild_admins_manage_notification_reads
+on public.admin_notification_reads for all to authenticated
+using (public.is_guild_admin((select guild_id from public.admin_notifications where id = notification_id)))
+with check (public.is_guild_admin((select guild_id from public.admin_notifications where id = notification_id)) and user_id = auth.uid());
+
 create policy guild_admins_manage_members
 on public.members for all to authenticated
 using (public.is_guild_admin(guild_id))

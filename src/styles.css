@@ -629,3 +629,44 @@ body { font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   .admin-chat-drawer, .chat-backdrop { animation: none; }
 }
+
+/* Facebook-style activity popover for the admin workspace. */
+.notification-launcher { min-width: 34px; min-height: 34px; cursor: pointer; }
+.notification-unread { position: absolute; top: -4px; right: -6px; display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border: 2px solid #171411; border-radius: 9px; color: #fff1e5; background: var(--ember); font-family: 'DM Mono', monospace; font-size: 8px; line-height: 1; }
+.notification-popover-backdrop { position: fixed; z-index: 41; inset: 0; border: 0; background: transparent; }
+.notification-popover { position: fixed; z-index: 42; top: 61px; right: 35px; width: min(390px, calc(100vw - 28px)); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-height: min(640px, calc(100vh - 82px)); overflow: hidden; border: 1px solid #59402f; border-radius: 10px; background: linear-gradient(160deg, #2a201b, #171513 38%, #141312); box-shadow: 0 22px 70px rgba(0, 0, 0, .5); animation: notification-popover-in .18s ease both; }
+.notification-popover-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 20px 20px 16px; border-bottom: 1px solid rgba(255, 255, 255, .09); }
+.notification-popover-header h2 { margin: 6px 0 4px; color: #f0dfd1; font-family: 'Newsreader', serif; font-size: 27px; font-weight: 500; }
+.notification-popover-header p { margin: 0; color: #9d8d81; font-size: 10px; line-height: 1.5; }
+.notification-list { overflow-y: auto; min-height: 0; padding: 7px; }
+.notification-item { position: relative; display: flex; width: 100%; align-items: flex-start; gap: 11px; border: 0; border-radius: 7px; padding: 12px 11px; color: inherit; background: transparent; text-align: left; cursor: pointer; transition: background .18s ease; }
+.notification-item:hover, .notification-item:focus-visible { outline: 0; background: #292019; }
+.notification-item.unread { background: rgba(84, 49, 31, .42); }
+.notification-item-icon { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border: 1px solid #60412f; border-radius: 9px; color: #dc9561; background: #302118; }
+.notification-type-chat { color: #c7a3d5; border-color: #594267; background: #2c2133; }
+.notification-type-regear { color: #df9871; }
+.notification-type-member { color: #a9c7d4; border-color: #3f5d67; background: #202f35; }
+.notification-type-item { color: #c3d19c; border-color: #53613f; background: #293021; }
+.notification-item-copy { display: grid; min-width: 0; gap: 3px; flex: 1; }
+.notification-item-copy strong { color: #e5d8cc; font-size: 11px; font-weight: 700; }
+.notification-item-copy > span { color: #a89a8e; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.notification-item-copy small { color: #756a61; font-family: 'DM Mono', monospace; font-size: 8px; }
+.notification-item-dot { align-self: center; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ember); box-shadow: 0 0 9px rgba(212, 119, 54, .65); }
+.notification-empty { display: grid; place-items: center; gap: 8px; min-height: 235px; padding: 25px; color: #958479; text-align: center; }
+.notification-empty strong { color: #e0cfc1; font-family: 'Newsreader', serif; font-size: 21px; font-weight: 500; }
+.notification-empty > span, .notification-empty small { max-width: 265px; font-size: 10px; line-height: 1.5; }
+.notification-empty-icon { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #6c452c; border-radius: 50%; color: var(--ember); background: #302018; }
+.notification-error { min-height: 280px; border: 1px solid rgba(185, 103, 87, .3); border-radius: 8px; background: rgba(73, 35, 31, .2); }
+.notification-inline-error { margin: 6px 5px 3px; color: #d99b8f; font-size: 9px; line-height: 1.4; }
+.notification-popover-footer { display: flex; justify-content: space-between; gap: 10px; padding: 11px 16px 13px; border-top: 1px solid rgba(255, 255, 255, .09); color: #756b63; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .03em; }
+.notification-popover-footer span { display: inline-flex; align-items: center; gap: 6px; color: #8da98d; }
+.notification-popover-footer i { width: 6px; height: 6px; border-radius: 50%; background: #79a77c; box-shadow: 0 0 8px rgba(121, 167, 124, .7); }
+@keyframes notification-popover-in { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (max-width: 600px) {
+  .notification-popover { top: 57px; right: 8px; left: 8px; width: auto; max-height: calc(100vh - 76px); }
+  .notification-popover-header { padding: 17px 16px 14px; }
+  .notification-list { padding: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notification-popover { animation: none; }
+}

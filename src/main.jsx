@@ -90,6 +90,8 @@ function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatUnread, setChatUnread] = useState(0)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notificationUnread, setNotificationUnread] = useState(0)
   const [invitePending, setInvitePending] = useState(() => typeof window !== 'undefined' && window.location.hash.includes('type=invite'))
 
   const filteredMembers = useMemo(() => members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.role.toLowerCase().includes(query.toLowerCase())).sort(compareMembersByChest), [members, query])
@@ -127,6 +129,14 @@ function App() {
     }).finally(() => { if (mounted) setDataLoading(false) })
     return () => { mounted = false }
   }, [session?.user?.id])
+
+  useEffect(() => {
+    if (!guild?.id || !session?.access_token) return undefined
+    const heartbeat = () => { fetch('/api/admin-directory', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {}) }
+    heartbeat()
+    const interval = window.setInterval(heartbeat, 60 * 1000)
+    return () => window.clearInterval(interval)
+  }, [guild?.id, session?.access_token])
 
   const liveMarkRegeared = async (name) => {
     const member = members.find((entry) => entry.name === name)
@@ -253,7 +263,7 @@ function App() {
   return <div className="app-shell">
     <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.filter((request) => request.status !== 'regeared').length} />
     <main className="main-content">
-      <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} onChat={() => { setChatOpen(true); setChatUnread(0) }} chatUnread={chatUnread} />
+      <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} onChat={() => { setNotificationsOpen(false); setChatOpen(true); setChatUnread(0) }} chatUnread={chatUnread} onNotifications={() => { setChatOpen(false); setNotificationsOpen((current) => !current) }} notificationUnread={notificationUnread} notificationsOpen={notificationsOpen} />
       {active === 'Dashboard' && <DashboardAccurate members={members} items={items} requests={regearRequests} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={(target) => typeof target === 'string' ? liveMarkRegeared(target) : liveMarkRequestRegeared(target)} />}
       {active === 'Daily regears' && <DailyRegearsPaginated requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onMark={liveMarkRequestRegeared} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
@@ -262,6 +272,7 @@ function App() {
       {active === 'Member view' && <MemberViewLive onNotify={notify} />}
     </main>
     <AdminChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} session={session} guild={guild} onNewMessage={() => { if (!chatOpen) setChatUnread((current) => current + 1) }} />
+    <AdminNotificationCenter open={notificationsOpen} onClose={() => setNotificationsOpen(false)} session={session} guild={guild} onUnreadChange={setNotificationUnread} onSelect={() => setNotificationsOpen(false)} />
     {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={liveAddMember} />}
     {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} onSave={liveAddPlan} />}
     {showDeathModal && <DeathModalDaily initialDate={deathModalDate} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => setShowDeathModal(false)} onSave={(payload) => liveReportDeath({ ...payload, items: payload.items.map((item) => typeof item === 'string' ? items.find((entry) => entry.name === item) || { name: item, category: 'Custom' } : item) })} />}
@@ -355,10 +366,11 @@ function Sidebar({ active, onNavigate, userName, userEmail, onSignOut, mobileNav
   </aside></>
 }
 
-function Topbar({ query, setQuery, onNotify, onMenu, onChat, chatUnread = 0 }) {
+function Topbar({ query, setQuery, onNotify, onMenu, onChat, chatUnread = 0, onNotifications, notificationUnread = 0, notificationsOpen = false }) {
   const chatButton = <button type="button" className="notification chat-launcher" onClick={onChat} aria-label={`Open admin chat${chatUnread ? `, ${chatUnread} unread` : ''}`}><Icon name="chat" size={18} />{chatUnread > 0 && <b className="chat-unread">{chatUnread > 9 ? '9+' : chatUnread}</b>}</button>
-  if (typeof window !== 'undefined' && window.innerWidth <= 600) return <header className="topbar mobile-topbar"><button className="mobile-menu-button" onClick={onMenu} aria-label="Open navigation"><Icon name="menu" size={20} /></button><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." aria-label="Search members" /></label>{chatButton}<button className="notification" onClick={() => onNotify('No new alerts')} aria-label="View notifications"><Icon name="bell" size={18} /><i /></button></div></header>
-  return <header className="topbar"><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="breadcrumbs"><span>Coup De Grace</span><Icon name="chevron" size={14} /><strong>Operations room</strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search members..." aria-label="Search members" /><kbd>⌘ K</kbd></label>{chatButton}<button className="notification" onClick={() => onNotify('No new alerts')} aria-label="View notifications"><Icon name="bell" size={18} /><i /></button><div className="online"><span /> Live</div></div></header>
+  const notificationButton = <button type="button" className="notification notification-launcher" onClick={onNotifications} aria-label={`Open notifications${notificationUnread ? `, ${notificationUnread} unread` : ''}`} aria-expanded={notificationsOpen}><Icon name="bell" size={18} />{notificationUnread > 0 && <b className="notification-unread">{notificationUnread > 9 ? '9+' : notificationUnread}</b>}{notificationUnread > 0 && <i />}</button>
+  if (typeof window !== 'undefined' && window.innerWidth <= 600) return <header className="topbar mobile-topbar"><button className="mobile-menu-button" onClick={onMenu} aria-label="Open navigation"><Icon name="menu" size={20} /></button><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." aria-label="Search members" /></label>{chatButton}{notificationButton}</div></header>
+  return <header className="topbar"><div className="mobile-brand"><div className="brand-mark">A<span>R</span></div><strong>Albion <em>Regear</em></strong></div><div className="breadcrumbs"><span>Coup De Grace</span><Icon name="chevron" size={14} /><strong>Operations room</strong></div><div className="top-actions"><label className="search"><Icon name="search" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search members..." aria-label="Search members" /><kbd>⌘ K</kbd></label>{chatButton}{notificationButton}<div className="online"><span /> Live</div></div></header>
 }
 
 function chatMessageDate(value) {
@@ -429,8 +441,6 @@ function AdminChatDrawer({ open, onClose, session, guild, onNewMessage }) {
   let lastDay = ''
   return <><button type="button" className="chat-backdrop" onClick={onClose} aria-label="Close admin chat" /><aside className="admin-chat-drawer" role="dialog" aria-modal="true" aria-labelledby="admin-chat-title"><header className="admin-chat-header"><div><span className="eyebrow">Coup De Grace · admin only</span><h2 id="admin-chat-title">Admin chat</h2><p>Coordinate regear work in one shared room.</p></div><button type="button" className="close-button" onClick={onClose} aria-label="Close admin chat"><Icon name="close" size={19} /></button></header><div className="admin-chat-messages" aria-live="polite">{loading && <div className="admin-chat-empty"><div className="public-loader" /><span>Loading messages...</span></div>}{!loading && error && !messages.length && <div className="admin-chat-empty admin-chat-error"><strong>Chat needs its Supabase table</strong><span>{error}</span><small>Run supabase/admin_chat.sql once, then refresh this page.</small></div>}{!loading && !error && !messages.length && <div className="admin-chat-empty"><span className="admin-chat-empty-icon"><Icon name="chat" size={20} /></span><strong>Start the admin room</strong><span>Share a quick update about an open regear, armory item, or member.</span></div>}{messages.map((message) => { const day = chatDayLabel(message.createdAt); const showDay = day !== lastDay; lastDay = day; const isMine = message.senderId === currentUserId; return <React.Fragment key={message.id}>{showDay && <div className="admin-chat-day"><span>{day}</span></div>}<div className={`admin-chat-message ${isMine ? 'mine' : ''}`}><div className="admin-chat-avatar">{message.senderName?.[0]?.toUpperCase() || 'A'}</div><div className="admin-chat-message-body"><div className="admin-chat-message-meta"><strong>{isMine ? 'You' : message.senderName}</strong><span>{chatMessageDate(message.createdAt)}</span></div><p>{message.body}</p></div></div></React.Fragment> })}<div ref={messagesEndRef} /></div><form className="admin-chat-composer" onSubmit={sendMessage}><label htmlFor="admin-chat-message">Message the admin room</label><div className="admin-chat-input-row"><textarea id="admin-chat-message" value={draft} onChange={(event) => setDraft(event.target.value.slice(0, 2000))} placeholder="Write an update..." rows="2" maxLength="2000" /><button type="submit" className="button button-primary" disabled={!draft.trim() || sending}>{sending ? 'Sending...' : 'Send'}<Icon name="arrow" size={15} /></button></div><div className="admin-chat-composer-footer"><span>Only linked administrators can read this room.</span><small>{draft.length}/2000</small></div>{error && messages.length > 0 && <div className="admin-chat-inline-error" role="alert">{error}</div>}</form></aside></>
 }
-
-function PageIntro({ eyebrow, title, description, action, onAction }) { return <div className="page-intro"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action && <button className="button button-primary" onClick={onAction}><Icon name="plus" size={16} />{action}</button>}</div> }
 
 function Dashboard({ members, onOpenMember, onOpenPlan, onOpenDeath, onNavigate, onMark }) {
   const needs = members.filter((m) => m.status === 'Open regear')
@@ -697,13 +707,6 @@ function AdminSettings({ onNotify, session, guild }) {
     } catch (error) { setAdminsError(error.message || 'Could not load administrators.') } finally { setAdminsLoading(false) }
   }
   useEffect(() => { if (section === 'Administrators') refreshAdmins() }, [guild?.id, session?.access_token, section])
-  useEffect(() => {
-    if (!guild?.id || !session?.access_token) return undefined
-    const heartbeat = () => { fetch('/api/admin-directory', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {}) }
-    heartbeat()
-    const interval = window.setInterval(heartbeat, 60 * 1000)
-    return () => window.clearInterval(interval)
-  }, [guild?.id, session?.access_token])
   const sendInvite = async () => {
     const email = adminEmail.trim().toLowerCase()
     if (!email) return
@@ -943,3 +946,74 @@ function DashboardAccurate({ members, items = [], requests = [], onOpenMember, o
 }
 
 createRoot(document.getElementById('root')).render(<App />)
+function notificationTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Earlier'
+  const seconds = Math.round((date.getTime() - Date.now()) / 1000)
+  const absolute = Math.abs(seconds)
+  if (absolute < 60) return 'Just now'
+  if (absolute < 3600) return Math.round(seconds / 60) + 'm ago'
+  if (absolute < 86400) return Math.round(seconds / 3600) + 'h ago'
+  if (absolute < 604800) return Math.round(seconds / 86400) + 'd ago'
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function notificationIcon(type) {
+  if (type?.includes('regear')) return 'swords'
+  if (type?.includes('chat')) return 'chat'
+  if (type?.includes('item')) return 'box'
+  if (type?.includes('member')) return 'users'
+  return 'bell'
+}
+
+function toAdminNotification(row, currentUserId) {
+  return { id: row.id, type: row.type || 'activity', title: row.title || 'Guild activity', body: row.body || '', actorId: row.actor_id, createdAt: row.created_at, isRead: row.actor_id === currentUserId }
+}
+
+function AdminNotificationCenter({ open, onClose, session, guild, onUnreadChange, onSelect }) {
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const currentUserId = session?.user?.id
+
+  useEffect(() => {
+    if (!supabase || !guild?.id || !currentUserId) return undefined
+    let mounted = true
+    setLoading(true)
+    Promise.all([
+      supabase.from('admin_notifications').select('id, type, title, body, actor_id, created_at').eq('guild_id', guild.id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('admin_notification_reads').select('notification_id').eq('user_id', currentUserId),
+    ]).then(([notificationsResult, readsResult]) => {
+      if (!mounted) return
+      if (notificationsResult.error) { setError(notificationsResult.error.message || 'Could not load notifications.'); return }
+      if (readsResult.error) { setError(readsResult.error.message || 'Could not load notification status.'); return }
+      const readIds = new Set((readsResult.data || []).map((entry) => entry.notification_id))
+      setNotifications((notificationsResult.data || []).map((row) => ({ ...toAdminNotification(row, currentUserId), isRead: row.actor_id === currentUserId || readIds.has(row.id) })))
+      setError('')
+    }).catch((loadError) => { if (mounted) setError(loadError.message || 'Could not load notifications.') }).finally(() => { if (mounted) setLoading(false) })
+
+    const channel = supabase.channel('admin-notifications-' + guild.id).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_notifications', filter: 'guild_id=eq.' + guild.id }, (payload) => {
+      const next = toAdminNotification(payload.new, currentUserId)
+      setNotifications((current) => current.some((entry) => entry.id === next.id) ? current : [{ ...next, isRead: next.actorId === currentUserId || open }, ...current])
+    }).subscribe((status) => { if (mounted && status === 'CHANNEL_ERROR') setError('Live notifications are unavailable. Run supabase/admin_notifications.sql, then refresh.') })
+    return () => { mounted = false; supabase.removeChannel(channel) }
+  }, [guild?.id, currentUserId, open])
+
+  useEffect(() => { onUnreadChange?.(notifications.filter((entry) => !entry.isRead && entry.actorId !== currentUserId).length) }, [notifications, currentUserId, onUnreadChange])
+
+  useEffect(() => {
+    if (!open || loading || !currentUserId) return
+    const unread = notifications.filter((entry) => !entry.isRead && entry.actorId !== currentUserId)
+    if (!unread.length) return
+    const rows = unread.map((entry) => ({ notification_id: entry.id, user_id: currentUserId }))
+    supabase.from('admin_notification_reads').upsert(rows, { onConflict: 'notification_id,user_id' }).then(({ error: markError }) => {
+      if (markError) { setError(markError.message || 'Could not mark notifications as read.'); return }
+      setNotifications((current) => current.map((entry) => ({ ...entry, isRead: true })))
+    })
+  }, [open, loading, currentUserId, notifications.length])
+
+  if (!open) return null
+  return <><button type="button" className="notification-popover-backdrop" onClick={onClose} aria-label="Close notifications" /><section className="notification-popover" role="dialog" aria-modal="true" aria-labelledby="notifications-title"><header className="notification-popover-header"><div><span className="eyebrow">Coup De Grace</span><h2 id="notifications-title">Notifications</h2><p>Recent activity from your administrator team.</p></div><button type="button" className="close-button" onClick={onClose} aria-label="Close notifications"><Icon name="close" size={18} /></button></header><div className="notification-list" aria-live="polite">{loading && <div className="notification-empty"><div className="public-loader" /><span>Loading activity...</span></div>}{!loading && error && !notifications.length && <div className="notification-empty notification-error"><span className="notification-empty-icon"><Icon name="bell" size={18} /></span><strong>Notifications need setup</strong><span>{error}</span><small>Run supabase/admin_notifications.sql once, then refresh.</small></div>}{!loading && !error && !notifications.length && <div className="notification-empty"><span className="notification-empty-icon"><Icon name="bell" size={18} /></span><strong>No new activity</strong><span>Changes from your admin team will appear here.</span></div>}{notifications.map((entry) => <button type="button" className={entry.isRead ? 'notification-item' : 'notification-item unread'} key={entry.id} onClick={onSelect}><span className={'notification-item-icon notification-type-' + entry.type}><Icon name={notificationIcon(entry.type)} size={16} /></span><span className="notification-item-copy"><strong>{entry.title}</strong><span>{entry.body}</span><small>{notificationTime(entry.createdAt)}</small></span>{!entry.isRead && <i className="notification-item-dot" />}</button>)}{error && notifications.length > 0 && <div className="notification-inline-error" role="alert">{error}</div>}</div><footer className="notification-popover-footer"><span><i /> Live activity feed</span><small>{notifications.length} recent {notifications.length === 1 ? 'event' : 'events'}</small></footer></section></>
+}
+
+function PageIntro({ eyebrow, title, description, action, onAction }) { return <div className="page-intro"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action && <button className="button button-primary" onClick={onAction}><Icon name="plus" size={16} />{action}</button>}</div> }
