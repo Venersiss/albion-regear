@@ -18,9 +18,15 @@ export default async function handler(req, res) {
   if (membershipError) return res.status(500).json({ error: membershipError.message })
   if (!membership) return res.status(403).json({ error: 'Only guild administrators can view invitations.' })
 
-  const { data: invites, error: inviteError } = await admin.from('admin_invites').select('id, email, invited_user_id, created_at, expires_at, accepted_at').eq('guild_id', guild.id).order('created_at', { ascending: false })
+  const { data: invites, error: inviteError } = await admin.from('admin_invites').select('id, email, invited_by, invited_user_id, created_at, expires_at, accepted_at').eq('guild_id', guild.id).order('created_at', { ascending: false })
   if (inviteError) return res.status(500).json({ error: inviteError.message })
   const users = {}
+  const inviters = {}
+  const inviterIds = [...new Set((invites || []).map((invite) => invite.invited_by).filter(Boolean))]
+  await Promise.all(inviterIds.map(async (userId) => {
+    const { data } = await admin.auth.admin.getUserById(userId)
+    if (data?.user) inviters[userId] = data.user
+  }))
   const missingEmailInvites = (invites || []).filter((invite) => !invite.invited_user_id)
   if (missingEmailInvites.length) {
     const { data: userData } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
@@ -33,7 +39,9 @@ export default async function handler(req, res) {
     else user = users[invite.email?.toLowerCase()] || null
     const acceptedAt = invite.accepted_at || user?.last_sign_in_at || user?.confirmed_at || null
     if (acceptedAt && !invite.accepted_at) await admin.from('admin_invites').update({ accepted_at: acceptedAt, accepted_by: user?.id || invite.invited_user_id }).eq('id', invite.id).eq('guild_id', guild.id)
-    normalized.push({ ...invite, accepted_at: acceptedAt, status: acceptedAt ? 'accepted' : new Date(invite.expires_at).getTime() < Date.now() ? 'expired' : 'pending' })
+    const inviter = inviters[invite.invited_by]
+    const inviterUsername = inviter?.user_metadata?.username || inviter?.email?.split('@')[0] || 'Unknown admin'
+    normalized.push({ ...invite, accepted_at: acceptedAt, invited_by_username: inviterUsername, invited_by_email: inviter?.email || null, status: acceptedAt ? 'accepted' : new Date(invite.expires_at).getTime() < Date.now() ? 'expired' : 'pending' })
   }
   return res.status(200).json({ invites: normalized })
 }
