@@ -46,6 +46,9 @@ alter table public.regear_requests
   add column if not exists archived_by uuid references auth.users(id) on delete set null,
   add column if not exists archived_by_name text;
 
+alter table public.regear_events
+  add column if not exists event_time time without time zone;
+
 do $$
 begin
   alter table public.regear_requests drop constraint if exists regear_requests_status_check;

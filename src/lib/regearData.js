@@ -92,6 +92,7 @@ export function toUiEvent(row) {
   return {
     id: row.id,
     date: row.event_date,
+    time: row.event_time || '',
     name: row.name,
     notes: row.notes || '',
     createdBy: row.created_by_name || '',
@@ -126,6 +127,7 @@ export function toUiRequest(row, members = [], notifications = [], childItems = 
     eventId: row.event_id || null,
     eventName: event?.name || row.event_name || 'Unassigned event',
     eventDate: event?.event_date || utcDayKey(row.died_at || row.created_at),
+    eventTime: event?.event_time || '',
     // Older records may still carry the retired archive status. Show them
     // using their previous workflow status now that date-level deletion is used.
     status: row.status === 'archived' ? row.archived_from_status || 'open' : row.status,
@@ -273,7 +275,7 @@ export async function ensureRegearEvent(guildId, event, admin = {}) {
   if (existingError) throw existingError
   const existing = (events || []).find((entry) => entry.name.toLowerCase() === name.toLowerCase())
   if (existing) return existing
-  const { data, error } = await supabase.from('regear_events').insert({ guild_id: guildId, event_date: eventDate, name, notes: event.notes || null, created_by: admin.id || null, created_by_name: admin.username || admin.email || 'Administrator' }).select('*').single()
+  const { data, error } = await supabase.from('regear_events').insert({ guild_id: guildId, event_date: eventDate, event_time: event.time || event.eventTime || null, name, notes: event.notes || null, created_by: admin.id || null, created_by_name: admin.username || admin.email || 'Administrator' }).select('*').single()
   if (error) {
     if (error.code === '23505') {
       const { data: duplicate } = await supabase.from('regear_events').select('*').eq('guild_id', guildId).eq('event_date', eventDate).eq('name', name).maybeSingle()
@@ -289,9 +291,27 @@ export async function createRegearEvent(guildId, event, admin = {}) {
 }
 
 export async function updateRegearEvent(guildId, eventId, event, admin = {}) {
-  const { data, error } = await supabase.from('regear_events').update({ event_date: event.date, name: String(event.name || '').trim() || 'Unassigned event', notes: event.notes || null, updated_by: admin.id || null, updated_by_name: admin.username || admin.email || 'Administrator', updated_at: new Date().toISOString() }).eq('id', eventId).eq('guild_id', guildId).select('*').single()
+  const { data, error } = await supabase.from('regear_events').update({ event_date: event.date, event_time: event.time || event.eventTime || null, name: String(event.name || '').trim() || 'Unassigned event', notes: event.notes || null, updated_by: admin.id || null, updated_by_name: admin.username || admin.email || 'Administrator', updated_at: new Date().toISOString() }).eq('id', eventId).eq('guild_id', guildId).select('*').single()
   if (error) throw error
   return data
+}
+
+export async function deleteRegearEvent(guildId, eventId) {
+  const { data: requestRows, error: requestError } = await supabase
+    .from('regear_requests')
+    .select('id')
+    .eq('guild_id', guildId)
+    .eq('event_id', eventId)
+  if (requestError) throw requestError
+
+  const requestIds = (requestRows || []).map((request) => request.id)
+  if (requestIds.length) {
+    const { error } = await supabase.from('regear_requests').delete().in('id', requestIds).eq('guild_id', guildId)
+    if (error) throw error
+  }
+  const { error } = await supabase.from('regear_events').delete().eq('id', eventId).eq('guild_id', guildId)
+  if (error) throw error
+  return { requestIds, eventId }
 }
 
 export async function deleteRegearDate(guildId, date) {

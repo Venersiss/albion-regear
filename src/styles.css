@@ -721,6 +721,8 @@ body { font-size: 13px; }
 
 /* Daily event tabs, flexible item quantities, and global admin search. */
 .daily-heading-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.modal-footer-spacer { flex: 1; }
+.modal-delete-action { margin-right: auto; }
 .day-row { display: flex; align-items: stretch; gap: 4px; margin-top: 6px; }
 .day-row .day-button { flex: 1; margin-top: 0; }
 .day-delete-button { display: grid; place-items: center; flex: 0 0 34px; margin: 0; border: 1px solid transparent; border-radius: 6px; color: #806e64; background: transparent; cursor: pointer; }

@@ -21,7 +21,7 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 - Daily regear workflow grouped by UTC date, then CTA/event tabs.
 - Death-to-regear workflow: report a casualty, add multiple replacement item lines with quantities, then mark the request regeared.
 - Global search for member IGNs, CTA/event names, and armory items. Member results open paginated, calendar-based regear history.
-- Regear records can be edited after completion, archived out of the daily log, restored later, and audited by administrator name.
+- Regear records can be edited after completion and audited by administrator name; admins can delete an entire daily date or CTA/event when needed.
 - Member roster with search, add member, and mark-ready interactions.
 - Role classification and filtering for Tank, Support, Healer, DPS, Bomb, and Caller.
 - Plan budgets, issuing-admin history, and role-based kit template scaffolding.
@@ -40,7 +40,7 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 2. Run `supabase/policies.sql` to allow linked administrators to access the private workspace through the browser client.
 3. Add the first Gmail admin in Supabase Auth, then link that Auth user in `public.guild_admins`.
 4. The app now loads members, items, and regear requests through Supabase and saves member chests, catalog items, and death reports.
-5. For an existing project, run [`supabase/daily_regear_upgrade.sql`](supabase/daily_regear_upgrade.sql) after `policies.sql`. This adds CTA/event tabs, flexible item quantities, archive fields, and migrates old one-item-per-slot records. Then run [`supabase/admin_notifications.sql`](supabase/admin_notifications.sql) again to audit CTA/event changes.
-6. The public member view reads the same flexible item lines and hides archived records; it has no write permissions.
+5. For an existing project, run [`supabase/daily_regear_upgrade.sql`](supabase/daily_regear_upgrade.sql) after `policies.sql`. This adds CTA/event tabs, flexible item quantities, and migrates old one-item-per-slot records. Then run [`supabase/regear_event_time_upgrade.sql`](supabase/regear_event_time_upgrade.sql) to add UTC event times, followed by [`supabase/admin_notifications.sql`](supabase/admin_notifications.sql) to audit CTA/event changes.
+6. The public member view reads the same flexible item lines and has no write permissions.
 
 The safest member flow is one public guild link with a private, expiring member invite code for personal kit details. Admins use Supabase Auth with the bootstrap Gmail address and invitation-only admin access; there is no public admin self-registration.

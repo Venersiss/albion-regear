@@ -235,6 +235,7 @@ create table if not exists public.regear_events (
   id uuid primary key default gen_random_uuid(),
   guild_id uuid not null references public.guilds(id) on delete cascade,
   event_date date not null,
+  event_time time without time zone,
   name text not null,
   notes text,
   created_by uuid references auth.users(id) on delete set null,

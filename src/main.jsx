@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
-import { createRegearEvent, deactivateMember, deleteItem as removeItem, deleteRegearDate, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateItem as persistItem, updateMemberChest as persistMemberChest, updateRegearEvent as persistRegearEvent, updateRegearRequest as persistRegearRequest } from './lib/regearData'
+import { createRegearEvent, deactivateMember, deleteItem as removeItem, deleteRegearDate, deleteRegearEvent, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateItem as persistItem, updateMemberChest as persistMemberChest, updateRegearEvent as persistRegearEvent, updateRegearRequest as persistRegearRequest } from './lib/regearData'
 
 const icons = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -196,7 +196,7 @@ function App() {
     } catch (error) { notify(error.message || 'Could not update the regear request') }
   }
 
-  const liveReportDeathV2 = async ({ memberId, memberName, note, chest, role, diedAt, eventId, eventName, eventDate, items: requestedItems }) => {
+  const liveReportDeathV2 = async ({ memberId, memberName, note, chest, role, diedAt, eventId, eventName, eventDate, eventTime, items: requestedItems }) => {
     const adminName = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'Administrator'
     const admin = { id: session?.user?.id, username: adminName, email: session?.user?.email }
     const itemLines = requestedItems.map((item, index) => typeof item === 'string' ? { name: item, category: 'Custom', quantity: 1, sortOrder: index } : { ...item, quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: item.sortOrder ?? index })
@@ -206,16 +206,16 @@ function App() {
       let requestId
       let savedEvent = null
       if (live) {
-        savedEvent = eventId ? null : await createRegearEvent(guild.id, { date: effectiveEventDate, name: effectiveEventName }, admin)
+        savedEvent = eventId ? null : await createRegearEvent(guild.id, { date: effectiveEventDate, name: effectiveEventName, time: eventTime }, admin)
         const created = await insertRegearRequest(guild.id, { memberId, memberName, note, chest, role, diedAt, eventId: eventId || savedEvent?.id, eventName: effectiveEventName, eventDate: effectiveEventDate, reportedBy: session?.user?.id, reportedByName: adminName, items: itemLines })
         requestId = created.id
         if (savedEvent) setRegearEvents((current) => current.some((entry) => entry.id === savedEvent.id) ? current : [...current, { id: savedEvent.id, date: savedEvent.event_date, name: savedEvent.name, notes: savedEvent.notes || '', createdBy: savedEvent.created_by_name || adminName, createdAt: savedEvent.created_at }])
-        setRegearRequests((current) => [{ id: created.id, memberId, memberName, role, diedAt: created.died_at, deathNote: created.death_note, chest: created.issue_chest, eventId: created.event_id || eventId || savedEvent?.id, eventName: savedEvent?.name || effectiveEventName, eventDate: savedEvent?.event_date || effectiveEventDate, status: created.status, items: itemLines, weapon: created.weapon, offHand: created.off_hand, helmet: created.helmet, armor: created.armor, boots: created.boots, regearedAt: created.regeared_at, reportedBy: created.reported_by_name || adminName, activity: [{ id: `local-created-${created.id}`, action: 'Regear added', adminName: created.reported_by_name || adminName, at: created.created_at || new Date().toISOString() }] }, ...current])
+        setRegearRequests((current) => [{ id: created.id, memberId, memberName, role, diedAt: created.died_at, deathNote: created.death_note, chest: created.issue_chest, eventId: created.event_id || eventId || savedEvent?.id, eventName: savedEvent?.name || effectiveEventName, eventDate: savedEvent?.event_date || effectiveEventDate, eventTime: savedEvent?.event_time || eventTime || '', status: created.status, items: itemLines, weapon: created.weapon, offHand: created.off_hand, helmet: created.helmet, armor: created.armor, boots: created.boots, regearedAt: created.regeared_at, reportedBy: created.reported_by_name || adminName, activity: [{ id: `local-created-${created.id}`, action: 'Regear added', adminName: created.reported_by_name || adminName, at: created.created_at || new Date().toISOString() }] }, ...current])
       } else {
         requestId = `local-request-${Date.now()}`
-        const localEvent = { id: eventId || `local-event-${effectiveEventDate}-${effectiveEventName}`, date: effectiveEventDate, name: effectiveEventName, createdBy: adminName, createdAt: new Date().toISOString() }
+        const localEvent = { id: eventId || `local-event-${effectiveEventDate}-${effectiveEventName}`, date: effectiveEventDate, time: eventTime || '', name: effectiveEventName, createdBy: adminName, createdAt: new Date().toISOString() }
         setRegearEvents((current) => current.some((entry) => entry.id === localEvent.id) ? current : [...current, localEvent])
-        setRegearRequests((current) => [{ id: requestId, memberId, memberName, role, diedAt, deathNote: note, chest, eventId: localEvent.id, eventName: localEvent.name, eventDate: localEvent.date, status: 'open', items: itemLines, weapon: itemLines.find((item) => item.category === 'Weapon')?.name || null, offHand: itemLines.find((item) => item.category === 'Off hand')?.name || null, helmet: itemLines.find((item) => item.category === 'Head')?.name || null, armor: itemLines.find((item) => item.category === 'Armor')?.name || null, boots: itemLines.find((item) => item.category === 'Boots')?.name || null, reportedBy: adminName, activity: [{ id: `local-created-${requestId}`, action: 'Regear added', adminName, at: new Date().toISOString() }] }, ...current])
+        setRegearRequests((current) => [{ id: requestId, memberId, memberName, role, diedAt, deathNote: note, chest, eventId: localEvent.id, eventName: localEvent.name, eventDate: localEvent.date, eventTime: localEvent.time, status: 'open', items: itemLines, weapon: itemLines.find((item) => item.category === 'Weapon')?.name || null, offHand: itemLines.find((item) => item.category === 'Off hand')?.name || null, helmet: itemLines.find((item) => item.category === 'Head')?.name || null, armor: itemLines.find((item) => item.category === 'Armor')?.name || null, boots: itemLines.find((item) => item.category === 'Boots')?.name || null, reportedBy: adminName, activity: [{ id: `local-created-${requestId}`, action: 'Regear added', adminName, at: new Date().toISOString() }] }, ...current])
       }
       setMembers((current) => current.map((member) => member.name === memberName ? { ...member, status: 'Open regear', last: 'Open regear · just now', issuedBy: 'Unassigned', deathNote: note, chest, regearRole: role, regearItems: itemLines.map((item) => item.name), requestId } : member))
       setShowDeathModal(false)
@@ -241,7 +241,7 @@ function App() {
     const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
     try {
       const saved = live ? await createRegearEvent(guild.id, event, admin) : { ...event, id: `local-event-${Date.now()}`, createdBy: admin.username || admin.email || 'Administrator', createdAt: new Date().toISOString() }
-      const next = { id: saved.id, date: saved.event_date || saved.date, name: saved.name, notes: saved.notes || '', createdBy: saved.created_by_name || saved.createdBy || admin.username || 'Administrator', createdAt: saved.created_at || saved.createdAt }
+      const next = { id: saved.id, date: saved.event_date || saved.date, time: saved.event_time || saved.time || '', name: saved.name, notes: saved.notes || '', createdBy: saved.created_by_name || saved.createdBy || admin.username || 'Administrator', createdAt: saved.created_at || saved.createdAt }
       setRegearEvents((current) => current.some((entry) => entry.id === next.id) ? current : [...current, next])
       notify(`${next.name} event added`)
       return next
@@ -252,12 +252,29 @@ function App() {
     const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
     try {
       const saved = live ? await persistRegearEvent(guild.id, event.id, event, admin) : event
-      const next = { ...event, date: saved.event_date || saved.date, name: saved.name, notes: saved.notes || '' }
+      const next = { ...event, date: saved.event_date || saved.date, time: saved.event_time || saved.time || '', name: saved.name, notes: saved.notes || '' }
       setRegearEvents((current) => current.map((entry) => entry.id === event.id ? next : entry))
-      setRegearRequests((current) => current.map((request) => request.eventId === event.id ? { ...request, eventName: next.name, eventDate: next.date } : request))
+      setRegearRequests((current) => current.map((request) => request.eventId === event.id ? { ...request, eventName: next.name, eventDate: next.date, eventTime: next.time } : request))
       notify(`${next.name} event updated`)
       return true
     } catch (error) { notify(error.message || 'Could not update the CTA/event'); return false }
+  }
+
+  const liveDeleteRegearEvent = async (event) => {
+    const eventRequests = regearRequests.filter((request) => request.eventId === event.id)
+    const message = eventRequests.length
+      ? `Delete ${event.name} and its ${eventRequests.length} regear record${eventRequests.length === 1 ? '' : 's'}? This cannot be undone.`
+      : `Delete ${event.name}? This cannot be undone.`
+    if (!window.confirm(message)) return false
+    try {
+      const result = live ? await deleteRegearEvent(guild.id, event.id) : { requestIds: eventRequests.map((request) => request.id) }
+      const deletedIds = new Set(result.requestIds || eventRequests.map((request) => request.id))
+      setRegearRequests((current) => current.filter((request) => !deletedIds.has(request.id) && request.eventId !== event.id))
+      setRegearEvents((current) => current.filter((entry) => entry.id !== event.id))
+      setMembers((current) => current.map((member) => member.requestId && deletedIds.has(member.requestId) ? { ...member, status: 'No open request', last: 'Not yet', issuedBy: 'Pending', requestId: undefined } : member))
+      notify(`${event.name} event was deleted`)
+      return true
+    } catch (error) { notify(error.message || 'Could not delete the CTA/event'); return false }
   }
 
   const liveDeleteRegearDate = async (date, recordCount = 0) => {
@@ -377,7 +394,7 @@ function App() {
     {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} onSave={liveAddPlan} />}
     {showDeathModal && <DeathModalDailyV2 initialDate={deathModalDate} initialEvent={deathModalEvent} eventOptions={regearEvents} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => { setShowDeathModal(false); setDeathModalEvent(null) }} onSave={(payload) => liveReportDeathV2(payload)} />}
     {editingRequest && <EditRegearModalV2 request={editingRequest} eventOptions={regearEvents} items={items} onClose={() => setEditingRequest(null)} onSave={(payload) => liveEditRegearV2(editingRequest, payload)} onRequestAddItem={(category) => { setEditingRequest(null); openItemCatalog(category) }} />}
-    {eventModal && <RegearEventModal initialEvent={eventModal} onClose={() => setEventModal(null)} onSave={async (payload) => { const saved = eventModal.id ? await liveEditRegearEvent({ ...eventModal, ...payload }) : await liveAddRegearEvent(payload); if (saved) setEventModal(null) }} />}
+    {eventModal && <RegearEventModal initialEvent={eventModal} onClose={() => setEventModal(null)} onDelete={async () => { const deleted = await liveDeleteRegearEvent(eventModal); if (deleted) setEventModal(null) }} onSave={async (payload) => { const saved = eventModal.id ? await liveEditRegearEvent({ ...eventModal, ...payload }) : await liveAddRegearEvent(payload); if (saved) setEventModal(null) }} />}
     {searchMember && <AdminMemberHistoryModal member={searchMember} requests={regearRequests} onClose={() => setSearchMember(null)} />}
     {showItemModal && <ItemModal initialCategory={itemModalCategory} initialItem={editingItem} onClose={() => { setShowItemModal(false); setEditingItem(null) }} onSave={editingItem ? liveUpdateItem : liveAddItem} />}
     {toast && <div className="toast"><span className="toast-dot" />{toast}</div>}
@@ -725,11 +742,20 @@ function DailyRequestSectionV2({ title, description, requests, emptyText, onMark
   return <section className={`daily-request-section ${closed ? 'daily-request-section-closed' : 'daily-request-section-open'}`}><div className="daily-request-heading"><div><h3>{title}</h3><p>{description}</p></div><span>{requests.length} {requests.length === 1 ? 'record' : 'records'}</span></div><div className="regear-entry-list">{pageRequests.map((request) => <RegearEntryV2 key={request.id} request={request} onMark={onMark} onEdit={onEdit} onArchive={onArchive} onRestore={onRestore} />)}{!requests.length && <EmptyState text={emptyText} />}</div><Pagination page={safePage} pageSize={pageSize} total={requests.length} onPageChange={setPage} /></section>
 }
 
-function RegearEventModal({ initialEvent, onClose, onSave }) {
+function RegearEventModalLegacy({ initialEvent, onClose, onSave }) {
   const [name, setName] = useState(initialEvent.name || '')
   const [date, setDate] = useState(initialEvent.date || dayKey(new Date()))
   const [notes, setNotes] = useState(initialEvent.notes || '')
   return <Modal title={initialEvent.id ? 'Edit CTA or event' : 'Add CTA or event'} eyebrow="Daily regear grouping" onClose={onClose}><div className="form-grid"><label>CTA or event name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Ava Roads CTA" required /></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label><label className="field-full">Notes<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional context for this event" /></label></div><div className="kit-callout"><Icon name="plan" size={18} /><div><strong>UTC daily log</strong><span>Deaths added to this event will stay together under this date and CTA name.</span></div></div><div className="modal-footer"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" disabled={!name.trim() || !date} onClick={() => onSave({ name: name.trim(), date, notes })}>{initialEvent.id ? 'Save event' : 'Add event'}</button></div></Modal>
+}
+
+function RegearEventModal({ initialEvent, onClose, onSave, onDelete }) {
+  const [name, setName] = useState(initialEvent.name || '')
+  const [date, setDate] = useState(initialEvent.date || dayKey(new Date()))
+  const [time, setTime] = useState(String(initialEvent.time || '').slice(0, 5))
+  const [notes, setNotes] = useState(initialEvent.notes || '')
+  const validTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(time)
+  return <Modal title={initialEvent.id ? 'Edit CTA or event' : 'Add CTA or event'} eyebrow="Daily regear grouping" onClose={onClose}><div className="form-grid"><label>CTA or event name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Ava Roads CTA" required /></label><label>Date (UTC)<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label><label>Start time (UTC · 24-hour)<input type="text" inputMode="numeric" pattern="([01]\d|2[0-3]):[0-5]\d" maxLength="5" value={time} onChange={(event) => setTime(event.target.value.replace(/[^0-9:]/g, '').slice(0, 5))} placeholder="20:00" required /></label><label className="field-full">Notes<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional context for this event" /></label></div><div className="kit-callout"><Icon name="plan" size={18} /><div><strong>UTC daily log</strong><span>Deaths added to this event will stay together under this date and CTA name.</span></div></div><div className="modal-footer">{initialEvent.id && <button type="button" className="button button-danger modal-delete-action" onClick={onDelete}><Icon name="trash" size={14} />Delete CTA/event</button>}<span className="modal-footer-spacer" /><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" disabled={!name.trim() || !date || !validTime} onClick={() => onSave({ name: name.trim(), date, time, notes })}>{initialEvent.id ? 'Save event' : 'Add event'}</button></div></Modal>
 }
 
 function DailyRegearsPaginatedLegacyArchive({ requests = [], events = [], onAdd, onEdit, onMark, onArchive, onRestore, onCreateEvent, onEditEvent }) {
