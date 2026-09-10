@@ -148,6 +148,7 @@ export async function saveCtaTemplate(guildId, name, description, sheet, admin =
   const templateData = { parties: sheet.parties.map((party) => ({ name: party.name, slots: party.slots.map(({ signup, id, partyId, ...slot }) => slot) })) }
   const { data, error } = await supabase.from('cta_templates').insert({ guild_id: guildId, name: name.trim(), description: description || null, template_data: templateData, created_by: admin.id || null, created_by_name: adminName(admin) }).select('*').single()
   if (error) throw error
+  await logCtaActivity(guildId, sheet.id, 'Template saved', 'template', data.id, { name: data.name }, admin)
   return data
 }
 

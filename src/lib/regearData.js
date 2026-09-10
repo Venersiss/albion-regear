@@ -341,6 +341,12 @@ export async function deleteRegearDate(guildId, date) {
     const { error } = await supabase.from('regear_events').delete().in('id', eventIds).eq('guild_id', guildId)
     if (error) throw error
   }
+  const { error: auditError } = await supabase.rpc('record_regear_date_deleted', {
+    target_guild_id: guildId,
+    target_date: date,
+    deleted_record_count: requestIds.length,
+  })
+  if (auditError) console.warn('The date was deleted, but its audit notification could not be recorded.', auditError)
   return { requestIds, eventIds }
 }
 

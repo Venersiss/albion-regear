@@ -64,7 +64,7 @@ begin
     nullif(row_data ->> 'sender_id', '')::uuid,
     nullif(row_data ->> 'user_id', '')::uuid
   );
-  actor_name_value := nullif(row_data ->> 'sender_name', '');
+  actor_name_value := coalesce(nullif(row_data ->> 'sender_name', ''), nullif(row_data ->> 'actor_name', ''));
 
   if tg_table_name = 'admin_presence' then
     if tg_op = 'UPDATE' and coalesce((old_data ->> 'last_seen_at')::timestamptz, now()) >= now() - interval '3 minutes' then
@@ -75,12 +75,12 @@ begin
     body_value := 'An administrator is now active in the workspace.';
   elsif tg_table_name = 'admin_messages' then
     type_value := 'chat';
-    title_value := 'New admin chat message';
-    body_value := left(coalesce(row_data ->> 'body', ''), 180);
+    title_value := case when tg_op = 'INSERT' then 'New admin chat message' when tg_op = 'DELETE' then 'Admin chat message deleted' else 'Admin chat message updated' end;
+    body_value := case when tg_op = 'INSERT' then left(coalesce(row_data ->> 'body', ''), 180) when tg_op = 'DELETE' then 'An admin chat message was deleted.' else 'An admin chat message was edited.' end;
   elsif tg_table_name = 'admin_invites' then
     type_value := 'invite';
-    title_value := 'Administrator invitation sent';
-    body_value := 'An invitation was sent to ' || coalesce(row_data ->> 'email', 'a new administrator') || '.';
+    title_value := case when tg_op = 'DELETE' then 'Administrator invitation cancelled' else 'Administrator invitation sent' end;
+    body_value := case when tg_op = 'DELETE' then 'The invitation for ' || coalesce(row_data ->> 'email', 'a new administrator') || ' was cancelled.' else 'An invitation was sent to ' || coalesce(row_data ->> 'email', 'a new administrator') || '.' end;
   elsif tg_table_name = 'members' then
     type_value := 'member';
     subject_value := coalesce(row_data ->> 'character_name', 'a guild member');
@@ -103,6 +103,9 @@ begin
     if tg_op = 'INSERT' then
       title_value := 'New regear reported';
       body_value := 'A death report was added for ' || subject_value || '.';
+    elsif tg_op = 'DELETE' then
+      title_value := 'Regear request deleted';
+      body_value := 'The regear request for ' || subject_value || ' was deleted.';
     elsif coalesce(row_data ->> 'status', '') = 'regeared' and coalesce(old_data ->> 'status', '') <> 'regeared' then
       title_value := 'Regear completed';
       body_value := subject_value || ' was marked as regeared.';
@@ -114,6 +117,11 @@ begin
     type_value := 'plan';
     title_value := case when tg_op = 'INSERT' then 'Regear day added' when tg_op = 'DELETE' then 'Regear day removed' else 'Regear day updated' end;
     body_value := coalesce(row_data ->> 'title', 'A regear day') || case when tg_op = 'INSERT' then ' was added.' when tg_op = 'DELETE' then ' was removed.' else ' was updated.' end;
+  elsif tg_table_name = 'cta_activity' then
+    type_value := 'cta';
+    subject_value := coalesce(row_data -> 'details' ->> 'name', row_data ->> 'action', 'CTA composition');
+    title_value := 'CTA composition activity';
+    body_value := coalesce(row_data ->> 'action', 'A CTA composition change was recorded.') || case when right(coalesce(row_data ->> 'action', ''), 1) = '.' then '' else '.' end;
   else
     return coalesce(new, old);
   end if;
@@ -123,6 +131,9 @@ begin
       into actor_name_value
       from auth.users
       where id = actor_id_value;
+  end if;
+  if actor_name_value is null and tg_table_name = 'cta_signups' then
+    actor_name_value := subject_value;
   end if;
   actor_name_value := coalesce(actor_name_value, 'Administrator');
   if type_value = 'admin_presence' then
@@ -147,12 +158,12 @@ for each row execute function public.record_admin_notification();
 
 drop trigger if exists admin_notifications_messages_trigger on public.admin_messages;
 create trigger admin_notifications_messages_trigger
-after insert on public.admin_messages
+after insert or update or delete on public.admin_messages
 for each row execute function public.record_admin_notification();
 
 drop trigger if exists admin_notifications_invites_trigger on public.admin_invites;
 create trigger admin_notifications_invites_trigger
-after insert on public.admin_invites
+after insert or delete on public.admin_invites
 for each row execute function public.record_admin_notification();
 
 drop trigger if exists admin_notifications_members_trigger on public.members;
@@ -178,6 +189,14 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if to_regclass('public.cta_activity') is not null then
+    execute 'drop trigger if exists admin_notifications_cta_activity_trigger on public.cta_activity';
+    execute 'create trigger admin_notifications_cta_activity_trigger after insert on public.cta_activity for each row execute function public.record_admin_notification()';
+  end if;
+end $$;
+
 drop trigger if exists admin_notifications_plans_trigger on public.regear_plans;
 create trigger admin_notifications_plans_trigger
 after insert or update or delete on public.regear_plans
@@ -189,3 +208,39 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+create or replace function public.record_regear_date_deleted(target_guild_id uuid, target_date date, deleted_record_count integer default 0)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  actor_id_value uuid := auth.uid();
+  actor_name_value text;
+begin
+  if actor_id_value is null or not public.is_guild_admin(target_guild_id) then
+    raise exception 'Only a guild administrator can record a deleted regear date.' using errcode = '42501';
+  end if;
+
+  select coalesce(raw_user_meta_data ->> 'username', split_part(email, '@', 1), 'Administrator')
+    into actor_name_value
+    from auth.users
+    where id = actor_id_value;
+
+  insert into public.admin_notifications (guild_id, actor_id, actor_name, type, title, body)
+  values (
+    target_guild_id,
+    actor_id_value,
+    coalesce(actor_name_value, 'Administrator'),
+    'regear',
+    'Death date deleted',
+    'Deleted the daily regear date ' || target_date::text || ' and ' || greatest(coalesce(deleted_record_count, 0), 0)::text || ' regear record' || case when greatest(coalesce(deleted_record_count, 0), 0) = 1 then '' else 's' end || '.'
+  );
+
+  return jsonb_build_object('recorded', true);
+end;
+$$;
+
+revoke all on function public.record_regear_date_deleted(uuid, date, integer) from public;
+grant execute on function public.record_regear_date_deleted(uuid, date, integer) to authenticated;
