@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
-    if (sheet.status === 'locked') return json(res, 423, { error: 'This CTA sheet is locked. New signups are closed.' })
+    if (sheet.status !== 'open') return json(res, 423, { error: sheet.status === 'draft' ? 'This CTA sheet is still a draft. Signups are not open yet.' : 'This CTA sheet is locked. New signups are closed.' })
     const action = body.action
 
     if (action === 'claim') {
