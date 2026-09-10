@@ -15,6 +15,8 @@ Import the repository into Vercel. Vercel will detect Vite automatically; the bu
 
 When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Vercel environment variables. The starter schema is in [`supabase/schema.sql`](supabase/schema.sql).
 
+For the CTA composition sheets feature, run [`supabase/cta_composition_sheets.sql`](supabase/cta_composition_sheets.sql) after `schema.sql` and `policies.sql`. Public CTA share links use the server-side [`api/cta-sheet.js`](api/cta-sheet.js) endpoint, so Vercel also needs a private `SUPABASE_SERVICE_ROLE_KEY` environment variable. Never expose that key as a `VITE_` variable.
+
 ## Current prototype behavior
 
 - Admin dashboard with attention queue, plans, activity, and armory health.
@@ -32,6 +34,7 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 - Read-only member board showing assigned chest and regear history without member accounts.
 - Closed admin access: the first admin is bootstrapped by Gmail, then existing admins invite additional Gmail addresses.
 - Settings screen and responsive layout for smaller screens.
+- CTA composition sheets with admin-managed parties, exact role slots, gear requirements, lock state, attendance, audit history, and secure public signup links for registered members.
 - Supabase is used for the live workspace; local mock state remains available when environment variables are absent.
 
 ## Suggested next backend steps
@@ -42,5 +45,8 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 4. The app now loads members, items, and regear requests through Supabase and saves member chests, catalog items, and death reports.
 5. For an existing project, run [`supabase/daily_regear_upgrade.sql`](supabase/daily_regear_upgrade.sql) after `policies.sql`. This adds CTA/event tabs, flexible item quantities, and migrates old one-item-per-slot records. Then run [`supabase/regear_event_time_upgrade.sql`](supabase/regear_event_time_upgrade.sql) to add UTC event times, followed by [`supabase/admin_notifications.sql`](supabase/admin_notifications.sql) to audit CTA/event changes.
 6. The public member view reads the same flexible item lines and has no write permissions.
+7. CTA sheets are managed from the `CTA Sheets` admin section. An admin creates a sheet, adds parties and exact role slots, then generates a secure `/cta/<token>` share link. Members can use that link without an account, choose only their registered IGN, claim one empty slot, and use the one-time private edit code to move or release their own signup while the sheet is open.
+
+For local admin testing, use `npm run dev`. Vite serves the admin SPA, but it does not run Vercel API functions; testing the public CTA share-link flow locally requires `vercel dev` with `SUPABASE_SERVICE_ROLE_KEY` configured. The feature branch is `feature/cta-composition-sheets`; it is intentionally not deployed or pushed by this change.
 
 The safest member flow is one public guild link with a private, expiring member invite code for personal kit details. Admins use Supabase Auth with the bootstrap Gmail address and invitation-only admin access; there is no public admin self-registration.

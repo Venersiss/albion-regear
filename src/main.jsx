@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
 import { createRegearEvent, deactivateMember, deleteItem as removeItem, deleteRegearDate, deleteRegearEvent, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateItem as persistItem, updateMemberChest as persistMemberChest, updateRegearEvent as persistRegearEvent, updateRegearRequest as persistRegearRequest } from './lib/regearData'
+import { CtaSheetsPage, PublicCtaSheet } from './ctaSheets'
 
 const icons = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -370,6 +371,8 @@ function App() {
   const navigate = (page) => { setActive(page); setMobileNavOpen(false) }
   const handleSignOut = async () => { try { await supabase?.auth.signOut() } finally { setSession(null); setGuild(null); setCtaPlans([]); setRegearEvents([]); setRegearRequests([]); setSearchMember(null); setMobileNavOpen(false) } }
 
+  const ctaPublicToken = typeof window !== 'undefined' ? window.location.pathname.match(/^\/cta\/([^/]+)/)?.[1] : ''
+  if (ctaPublicToken) return <PublicCtaSheet token={decodeURIComponent(ctaPublicToken)} />
   if (isSupabaseConfigured && authLoading) return <LoadingScreen text="Checking admin access..." />
   if (isSupabaseConfigured && !session) return publicView ? <PublicMemberShell onAdminLogin={() => setPublicView(false)} /> : <AuthGate onMemberView={() => setPublicView(true)} />
   if (isSupabaseConfigured && session && invitePending) return <SetPasswordGate email={session.user?.email} onComplete={(nextSession) => { if (nextSession) setSession(nextSession); setInvitePending(false) }} />
@@ -385,6 +388,7 @@ function App() {
       {active === 'Daily regears' && <DailyRegearsPaginatedV2 requests={regearRequests} events={regearEvents} members={members} items={items} onAdd={(day, event) => { setDeathModalDate(day || dayKey(new Date())); setDeathModalEvent(event || null); setShowDeathModal(true) }} onCreateEvent={(date) => setEventModal({ date })} onEditEvent={(event) => setEventModal(event)} onEdit={(request) => setEditingRequest(request)} onMark={liveMarkRequestRegeared} onDeleteDate={liveDeleteRegearDate} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
       {active === 'Armory' && <ArmoryWithWeaponsPaginated items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} onEdit={openItemEditor} onDelete={liveDeleteItem} />}
+      {active === 'CTA Sheets' && <CtaSheetsPage guild={guild} session={session} members={members} onNotify={notify} />}
       {active === 'Settings' && <AdminSettings onNotify={notify} session={session} guild={guild} />}
       {active === 'Member view' && <MemberViewLive onNotify={notify} />}
     </main>
@@ -470,7 +474,7 @@ function ConnectionError({ message, onSignOut }) {
 }
 
 function Sidebar({ active, onNavigate, userName, userEmail, onSignOut, mobileNavOpen, onClose, ctaCount = 0 }) {
-  const nav = [['Dashboard', 'grid'], ['Daily regears', 'plan'], ['Members', 'users'], ['Armory', 'box']]
+  const nav = [['Dashboard', 'grid'], ['Daily regears', 'plan'], ['CTA Sheets', 'swords'], ['Members', 'users'], ['Armory', 'box']]
   return <><button className={`mobile-nav-overlay ${mobileNavOpen ? 'visible' : ''}`} onClick={onClose} aria-label="Close navigation" /><aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
     <button className="mobile-nav-close" onClick={onClose} aria-label="Close navigation"><Icon name="close" size={18} /></button>
     <div className="brand"><div className="brand-mark">A<span>R</span></div><div><div className="brand-name">Albion <em>Regear</em></div><div className="brand-caption">COUP DE GRACE</div></div></div>
