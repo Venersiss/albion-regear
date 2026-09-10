@@ -33,7 +33,8 @@ function legacyItemsFromRow(row = {}) {
 
 export function toUiMember(row, requests = [], guildName = 'Coup De Grace') {
   const request = latestRequestFor(row.id, requests)
-  const open = request && request.status !== 'regeared' && request.status !== 'archived'
+  const requestStatus = request?.status === 'archived' ? request.archived_from_status || 'open' : request?.status
+  const open = request && requestStatus !== 'regeared'
   return {
     id: row.id,
     name: row.character_name,
@@ -125,7 +126,9 @@ export function toUiRequest(row, members = [], notifications = [], childItems = 
     eventId: row.event_id || null,
     eventName: event?.name || row.event_name || 'Unassigned event',
     eventDate: event?.event_date || utcDayKey(row.died_at || row.created_at),
-    status: row.status,
+    // Older records may still carry the retired archive status. Show them
+    // using their previous workflow status now that date-level deletion is used.
+    status: row.status === 'archived' ? row.archived_from_status || 'open' : row.status,
     items,
     weapon: row.weapon,
     offHand: row.off_hand,
@@ -291,6 +294,36 @@ export async function updateRegearEvent(guildId, eventId, event, admin = {}) {
   return data
 }
 
+export async function deleteRegearDate(guildId, date) {
+  const { data: eventRows, error: eventError } = await supabase
+    .from('regear_events')
+    .select('id, event_date')
+    .eq('guild_id', guildId)
+    .eq('event_date', date)
+  if (eventError) throw eventError
+
+  const eventIds = (eventRows || []).map((event) => event.id)
+  const { data: requestRows, error: requestError } = await supabase
+    .from('regear_requests')
+    .select('id, event_id, died_at, created_at')
+    .eq('guild_id', guildId)
+  if (requestError) throw requestError
+
+  const requestIds = (requestRows || [])
+    .filter((request) => eventIds.includes(request.event_id) || utcDayKey(request.died_at || request.created_at) === date)
+    .map((request) => request.id)
+
+  if (requestIds.length) {
+    const { error } = await supabase.from('regear_requests').delete().in('id', requestIds).eq('guild_id', guildId)
+    if (error) throw error
+  }
+  if (eventIds.length) {
+    const { error } = await supabase.from('regear_events').delete().in('id', eventIds).eq('guild_id', guildId)
+    if (error) throw error
+  }
+  return { requestIds, eventIds }
+}
+
 export async function insertRegearRequest(guildId, request) {
   const diedAt = request.diedAt || new Date().toISOString()
   const event = request.eventId ? null : await ensureRegearEvent(guildId, { date: request.eventDate || utcDayKey(diedAt), name: request.eventName }, { id: request.reportedBy, username: request.reportedByName })
@@ -318,22 +351,6 @@ export async function markRequestRegeared(guildId, requestId, admin = {}) {
   const { error } = await supabase.from('regear_requests').update({ status: 'regeared', regeared_at: regearedAt, issued_by: admin.id || null, regeared_by: admin.id || null, regeared_by_name: adminName, updated_by: admin.id || null, updated_by_name: adminName, updated_at: regearedAt }).eq('id', requestId).eq('guild_id', guildId).eq('status', 'open')
   if (error) throw error
   return { regearedAt, regearedBy: adminName }
-}
-
-export async function archiveRegearRequest(guildId, requestId, request, admin = {}) {
-  const archivedAt = new Date().toISOString()
-  const adminName = admin.username || admin.email || 'Administrator'
-  const { error } = await supabase.from('regear_requests').update({ status: 'archived', archived_from_status: request.status === 'archived' ? request.archivedFromStatus || 'open' : request.status || 'open', archived_at: archivedAt, archived_by: admin.id || null, archived_by_name: adminName, updated_by: admin.id || null, updated_by_name: adminName, updated_at: archivedAt }).eq('id', requestId).eq('guild_id', guildId).neq('status', 'archived')
-  if (error) throw error
-  return { archivedAt, archivedBy: adminName }
-}
-
-export async function restoreRegearRequest(guildId, requestId, request, admin = {}) {
-  const adminName = admin.username || admin.email || 'Administrator'
-  const restoreStatus = ['open', 'issued', 'regeared'].includes(request.archivedFromStatus) ? request.archivedFromStatus : 'open'
-  const { error } = await supabase.from('regear_requests').update({ status: restoreStatus, archived_from_status: null, archived_at: null, archived_by: null, archived_by_name: null, updated_by: admin.id || null, updated_by_name: adminName, updated_at: new Date().toISOString() }).eq('id', requestId).eq('guild_id', guildId).eq('status', 'archived')
-  if (error) throw error
-  return { status: restoreStatus, updatedBy: adminName }
 }
 
 export async function listAdminInvites(guildId, accessToken) {

@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   const [membersResult, requestsResult, eventsResult, itemLinesResult] = await Promise.all([
     admin.from('members').select('id, character_name, role, issue_chest').eq('guild_id', guild.id).eq('active', true).order('character_name'),
-    admin.from('regear_requests').select('*').eq('guild_id', guild.id).neq('status', 'archived').order('created_at', { ascending: false }),
+    admin.from('regear_requests').select('*').eq('guild_id', guild.id).order('created_at', { ascending: false }),
     admin.from('regear_events').select('id, event_date, name').eq('guild_id', guild.id),
     admin.from('regear_request_items').select('id, regear_request_id, category, item_name, quantity, sort_order').order('sort_order'),
   ])
@@ -31,13 +31,15 @@ export default async function handler(req, res) {
     const lines = itemLines.filter((item) => item.regear_request_id === request.id).sort((first, second) => (first.sort_order || 0) - (second.sort_order || 0)).map((item) => ({ id: item.id, category: item.category, name: item.item_name, quantity: Number(item.quantity || 1), sortOrder: item.sort_order || 0 }))
     const legacyLines = [['Weapon', request.weapon], ['Off hand', request.off_hand], ['Head', request.helmet], ['Armor', request.armor], ['Boots', request.boots]].filter(([, name]) => name).map(([category, name], index) => ({ id: `legacy-${request.id}-${index}`, category, name, quantity: 1, sortOrder: index }))
     const history = requestHistory.get(request.member_id) || []
-    history.push({ id: request.id, status: request.status, role: request.role, diedAt: request.died_at || request.created_at, deathNote: request.death_note || '', chest: request.issue_chest || 'Unassigned', eventName: event?.name || 'Unassigned event', items: lines.length ? lines : legacyLines, weapon: request.weapon || '', offHand: request.off_hand || '', helmet: request.helmet || '', armor: request.armor || '', boots: request.boots || '', regearedAt: request.regeared_at || null, regearedBy: request.regeared_by_name || '', reportedBy: request.reported_by_name || '' })
+    const status = request.status === 'archived' ? request.archived_from_status || 'open' : request.status
+    history.push({ id: request.id, status, role: request.role, diedAt: request.died_at || request.created_at, deathNote: request.death_note || '', chest: request.issue_chest || 'Unassigned', eventName: event?.name || 'Unassigned event', items: lines.length ? lines : legacyLines, weapon: request.weapon || '', offHand: request.off_hand || '', helmet: request.helmet || '', armor: request.armor || '', boots: request.boots || '', regearedAt: request.regeared_at || null, regearedBy: request.regeared_by_name || '', reportedBy: request.reported_by_name || '' })
     requestHistory.set(request.member_id, history)
   }
 
   const members = (membersResult.data || []).map((member) => {
     const request = latestRequests.get(member.id)
-    return { id: member.id, name: member.character_name, role: member.role, chest: member.issue_chest || 'Unassigned', status: request?.status === 'regeared' ? 'regeared' : request ? 'open' : 'none', diedAt: request?.died_at || null, regearedAt: request?.regeared_at || null, history: requestHistory.get(member.id) || [] }
+    const status = request?.status === 'archived' ? request.archived_from_status || 'open' : request?.status
+    return { id: member.id, name: member.character_name, role: member.role, chest: member.issue_chest || 'Unassigned', status: status === 'regeared' ? 'regeared' : request ? 'open' : 'none', diedAt: request?.died_at || null, regearedAt: request?.regeared_at || null, history: requestHistory.get(member.id) || [] }
   }).sort((first, second) => {
     const firstChest = String(first.chest || '').match(/\d+/)
     const secondChest = String(second.chest || '').match(/\d+/)
