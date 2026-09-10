@@ -23,13 +23,13 @@ export default async function handler(req, res) {
   const { data: sheet, error: sheetError } = await admin.from('cta_sheets').select('id, guild_id, name').eq('id', body.sheetId).maybeSingle()
   if (sheetError) return res.status(500).json({ error: sheetError.message })
   if (!sheet) return res.status(404).json({ error: 'CTA sheet not found.' })
-  const { data: membership, error: membershipError } = await admin.from('guild_admins').select('id').eq('guild_id', sheet.guild_id).eq('user_id', userResult.user.id).maybeSingle()
+  const { data: membership, error: membershipError } = await admin.from('guild_admins').select('user_id').eq('guild_id', sheet.guild_id).eq('user_id', userResult.user.id).maybeSingle()
   if (membershipError) return res.status(500).json({ error: membershipError.message })
   if (!membership) return res.status(403).json({ error: 'You are not linked as an administrator for this guild.' })
   const token = randomShareToken()
   const { error: updateError } = await admin.from('cta_sheets').update({ share_token_hash: hashToken(token), updated_by: userResult.user.id, updated_by_name: userResult.user.user_metadata?.username || userResult.user.email || 'Administrator', updated_at: new Date().toISOString() }).eq('id', sheet.id)
   if (updateError) return res.status(500).json({ error: updateError.message })
   await admin.from('cta_activity').insert({ guild_id: sheet.guild_id, sheet_id: sheet.id, actor_id: userResult.user.id, actor_name: userResult.user.user_metadata?.username || userResult.user.email || 'Administrator', action: 'Public share link regenerated', entity_type: 'sheet', entity_id: sheet.id, details: {} })
-  const origin = req.headers.origin || `https://${req.headers.host}`
+  const origin = String(process.env.PUBLIC_APP_URL || 'https://albion-regear.vercel.app').replace(/\/+$/, '')
   return res.status(200).json({ token, url: `${origin}/cta/${token}` })
 }

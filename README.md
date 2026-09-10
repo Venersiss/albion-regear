@@ -15,7 +15,7 @@ Import the repository into Vercel. Vercel will detect Vite automatically; the bu
 
 When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Vercel environment variables. The starter schema is in [`supabase/schema.sql`](supabase/schema.sql).
 
-For the CTA composition sheets feature, run [`supabase/cta_composition_sheets.sql`](supabase/cta_composition_sheets.sql) after `schema.sql` and `policies.sql`. Public CTA share links use the server-side [`api/cta-sheet.js`](api/cta-sheet.js) endpoint, so Vercel also needs a private `SUPABASE_SERVICE_ROLE_KEY` environment variable. Never expose that key as a `VITE_` variable.
+For the CTA composition sheets feature, run [`supabase/cta_composition_sheets.sql`](supabase/cta_composition_sheets.sql) after `schema.sql` and `policies.sql`. Public CTA share links use the server-side [`api/cta-sheet.js`](api/cta-sheet.js) endpoint, so Vercel also needs a private `SUPABASE_SERVICE_ROLE_KEY` environment variable. Never expose that key as a `VITE_` variable. `PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` may be set to the public app domain when using a custom domain; they default to `https://albion-regear.vercel.app`.
 
 ## Current prototype behavior
 
