@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
-import { deactivateMember, deleteItem as removeItem, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateItem as persistItem, updateMemberChest as persistMemberChest, updateRegearRequest as persistRegearRequest } from './lib/regearData'
+import { archiveRegearRequest, createRegearEvent, deactivateMember, deleteItem as removeItem, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, restoreRegearRequest, updateItem as persistItem, updateMemberChest as persistMemberChest, updateRegearEvent as persistRegearEvent, updateRegearRequest as persistRegearRequest } from './lib/regearData'
 
 const icons = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -77,6 +77,8 @@ function App() {
   const [itemModalCategory, setItemModalCategory] = useState('Weapon')
   const [editingItem, setEditingItem] = useState(null)
   const [deathModalDate, setDeathModalDate] = useState(dayKey(new Date()))
+  const [deathModalEvent, setDeathModalEvent] = useState(null)
+  const [eventModal, setEventModal] = useState(null)
   const [items, setItems] = useState(initialItems)
   const [regearRequests, setRegearRequests] = useState([])
   const [query, setQuery] = useState('')
@@ -86,6 +88,7 @@ function App() {
   const [dataLoading, setDataLoading] = useState(false)
   const [liveError, setLiveError] = useState('')
   const [guild, setGuild] = useState(null)
+  const [regearEvents, setRegearEvents] = useState([])
   const [ctaPlans, setCtaPlans] = useState([])
   const [publicView, setPublicView] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -93,6 +96,7 @@ function App() {
   const [chatUnread, setChatUnread] = useState(0)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationUnread, setNotificationUnread] = useState(0)
+  const [searchMember, setSearchMember] = useState(null)
   const [invitePending, setInvitePending] = useState(() => typeof window !== 'undefined' && window.location.hash.includes('type=invite'))
 
   const filteredMembers = useMemo(() => members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase())).sort(compareMembersByChest), [members, query])
@@ -124,6 +128,7 @@ function App() {
       setMembers(workspace.members)
       setItems(workspace.items)
       setCtaPlans(workspace.plans)
+      setRegearEvents(workspace.events || [])
       setRegearRequests(workspace.requests)
     }).catch((error) => {
       if (mounted) setLiveError(error.message || 'Supabase could not load the guild workspace.')
@@ -189,6 +194,89 @@ function App() {
       setEditingRequest(null)
       notify(`${request.memberName}'s open regear was updated`)
     } catch (error) { notify(error.message || 'Could not update the regear request') }
+  }
+
+  const liveReportDeathV2 = async ({ memberId, memberName, note, chest, role, diedAt, eventId, eventName, eventDate, items: requestedItems }) => {
+    const adminName = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'Administrator'
+    const admin = { id: session?.user?.id, username: adminName, email: session?.user?.email }
+    const itemLines = requestedItems.map((item, index) => typeof item === 'string' ? { name: item, category: 'Custom', quantity: 1, sortOrder: index } : { ...item, quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: item.sortOrder ?? index })
+    const effectiveEventName = eventName?.trim() || 'Unassigned event'
+    const effectiveEventDate = eventDate || dayKey(diedAt)
+    try {
+      let requestId
+      let savedEvent = null
+      if (live) {
+        savedEvent = eventId ? null : await createRegearEvent(guild.id, { date: effectiveEventDate, name: effectiveEventName }, admin)
+        const created = await insertRegearRequest(guild.id, { memberId, memberName, note, chest, role, diedAt, eventId: eventId || savedEvent?.id, eventName: effectiveEventName, eventDate: effectiveEventDate, reportedBy: session?.user?.id, reportedByName: adminName, items: itemLines })
+        requestId = created.id
+        if (savedEvent) setRegearEvents((current) => current.some((entry) => entry.id === savedEvent.id) ? current : [...current, { id: savedEvent.id, date: savedEvent.event_date, name: savedEvent.name, notes: savedEvent.notes || '', createdBy: savedEvent.created_by_name || adminName, createdAt: savedEvent.created_at }])
+        setRegearRequests((current) => [{ id: created.id, memberId, memberName, role, diedAt: created.died_at, deathNote: created.death_note, chest: created.issue_chest, eventId: created.event_id || eventId || savedEvent?.id, eventName: savedEvent?.name || effectiveEventName, eventDate: savedEvent?.event_date || effectiveEventDate, status: created.status, items: itemLines, weapon: created.weapon, offHand: created.off_hand, helmet: created.helmet, armor: created.armor, boots: created.boots, regearedAt: created.regeared_at, reportedBy: created.reported_by_name || adminName, activity: [{ id: `local-created-${created.id}`, action: 'Regear added', adminName: created.reported_by_name || adminName, at: created.created_at || new Date().toISOString() }] }, ...current])
+      } else {
+        requestId = `local-request-${Date.now()}`
+        const localEvent = { id: eventId || `local-event-${effectiveEventDate}-${effectiveEventName}`, date: effectiveEventDate, name: effectiveEventName, createdBy: adminName, createdAt: new Date().toISOString() }
+        setRegearEvents((current) => current.some((entry) => entry.id === localEvent.id) ? current : [...current, localEvent])
+        setRegearRequests((current) => [{ id: requestId, memberId, memberName, role, diedAt, deathNote: note, chest, eventId: localEvent.id, eventName: localEvent.name, eventDate: localEvent.date, status: 'open', items: itemLines, weapon: itemLines.find((item) => item.category === 'Weapon')?.name || null, offHand: itemLines.find((item) => item.category === 'Off hand')?.name || null, helmet: itemLines.find((item) => item.category === 'Head')?.name || null, armor: itemLines.find((item) => item.category === 'Armor')?.name || null, boots: itemLines.find((item) => item.category === 'Boots')?.name || null, reportedBy: adminName, activity: [{ id: `local-created-${requestId}`, action: 'Regear added', adminName, at: new Date().toISOString() }] }, ...current])
+      }
+      setMembers((current) => current.map((member) => member.name === memberName ? { ...member, status: 'Open regear', last: 'Open regear · just now', issuedBy: 'Unassigned', deathNote: note, chest, regearRole: role, regearItems: itemLines.map((item) => item.name), requestId } : member))
+      setShowDeathModal(false)
+      notify(`${memberName} added to the regear queue`)
+    } catch (error) { notify(error.message || 'Could not create the regear request') }
+  }
+
+  const liveEditRegearV2 = async (request, changes) => {
+    const adminName = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'Administrator'
+    const admin = { id: session?.user?.id, username: adminName, email: session?.user?.email }
+    try {
+      const updated = live ? await persistRegearRequest(guild.id, request.id, changes, admin) : { ...request, died_at: changes.diedAt, death_note: changes.note, issue_chest: changes.chest, role: changes.role, event_id: changes.eventId, items: changes.items, eventName: changes.eventName, eventDate: changes.eventDate, weapon: changes.items?.find((item) => item.category === 'Weapon')?.name || null, off_hand: changes.items?.find((item) => item.category === 'Off hand')?.name || null, helmet: changes.items?.find((item) => item.category === 'Head')?.name || null, armor: changes.items?.find((item) => item.category === 'Armor')?.name || null, boots: changes.items?.find((item) => item.category === 'Boots')?.name || null }
+      const nextRequest = { ...request, role: updated.role || changes.role, diedAt: updated.died_at || changes.diedAt, deathNote: updated.death_note || changes.note, chest: updated.issue_chest || changes.chest, eventId: updated.event_id || changes.eventId || request.eventId, eventName: updated.event?.name || changes.eventName || request.eventName, eventDate: updated.event?.event_date || changes.eventDate || request.eventDate, items: updated.items || changes.items || request.items, weapon: updated.weapon, offHand: updated.off_hand, helmet: updated.helmet, armor: updated.armor, boots: updated.boots, updatedBy: adminName, updatedAt: new Date().toISOString(), activity: [...(request.activity || []), { id: `local-edited-${Date.now()}`, action: 'Regear edited', adminName, at: new Date().toISOString() }] }
+      if (updated.event) setRegearEvents((current) => current.some((entry) => entry.id === updated.event.id) ? current.map((entry) => entry.id === updated.event.id ? { ...entry, date: updated.event.event_date, name: updated.event.name } : entry) : [...current, { id: updated.event.id, date: updated.event.event_date, name: updated.event.name }])
+      setRegearRequests((current) => current.map((entry) => entry.id === request.id ? nextRequest : entry))
+      setMembers((current) => current.map((member) => member.id === request.memberId ? { ...member, chest: nextRequest.chest, regearRole: nextRequest.role, deathNote: nextRequest.deathNote, regearItems: (nextRequest.items || []).map((item) => item.name) } : member))
+      setEditingRequest(null)
+      notify(`${request.memberName}'s regear record was updated`)
+    } catch (error) { notify(error.message || 'Could not update the regear request') }
+  }
+
+  const liveAddRegearEvent = async (event) => {
+    const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
+    try {
+      const saved = live ? await createRegearEvent(guild.id, event, admin) : { ...event, id: `local-event-${Date.now()}`, createdBy: admin.username || admin.email || 'Administrator', createdAt: new Date().toISOString() }
+      const next = { id: saved.id, date: saved.event_date || saved.date, name: saved.name, notes: saved.notes || '', createdBy: saved.created_by_name || saved.createdBy || admin.username || 'Administrator', createdAt: saved.created_at || saved.createdAt }
+      setRegearEvents((current) => current.some((entry) => entry.id === next.id) ? current : [...current, next])
+      notify(`${next.name} event added`)
+      return next
+    } catch (error) { notify(error.message || 'Could not add the CTA/event'); return null }
+  }
+
+  const liveEditRegearEvent = async (event) => {
+    const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
+    try {
+      const saved = live ? await persistRegearEvent(guild.id, event.id, event, admin) : event
+      const next = { ...event, date: saved.event_date || saved.date, name: saved.name, notes: saved.notes || '' }
+      setRegearEvents((current) => current.map((entry) => entry.id === event.id ? next : entry))
+      setRegearRequests((current) => current.map((request) => request.eventId === event.id ? { ...request, eventName: next.name, eventDate: next.date } : request))
+      notify(`${next.name} event updated`)
+      return true
+    } catch (error) { notify(error.message || 'Could not update the CTA/event'); return false }
+  }
+
+  const liveArchiveRequest = async (request) => {
+    if (!window.confirm(`Archive ${request.memberName}'s regear record? It will leave the daily log but remain recoverable.`)) return
+    const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
+    try {
+      const result = live ? await archiveRegearRequest(guild.id, request.id, request, admin) : { archivedAt: new Date().toISOString(), archivedBy: admin.username || admin.email || 'Administrator' }
+      setRegearRequests((current) => current.map((entry) => entry.id === request.id ? { ...entry, status: 'archived', archivedAt: result.archivedAt, archivedBy: result.archivedBy, archivedFromStatus: request.status, activity: [...(entry.activity || []), { id: `local-archived-${Date.now()}`, action: 'Regear archived', adminName: result.archivedBy, at: result.archivedAt }] } : entry))
+      notify(`${request.memberName}'s regear record archived`)
+    } catch (error) { notify(error.message || 'Could not archive the regear record') }
+  }
+
+  const liveRestoreRequest = async (request) => {
+    const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
+    try {
+      const result = live ? await restoreRegearRequest(guild.id, request.id, request, admin) : { status: request.archivedFromStatus || 'open', updatedBy: admin.username || admin.email || 'Administrator' }
+      setRegearRequests((current) => current.map((entry) => entry.id === request.id ? { ...entry, status: result.status, archivedAt: null, archivedBy: '', activity: [...(entry.activity || []), { id: `local-restored-${Date.now()}`, action: 'Regear restored', adminName: result.updatedBy, at: new Date().toISOString() }] } : entry))
+      notify(`${request.memberName}'s regear record restored`)
+    } catch (error) { notify(error.message || 'Could not restore the regear record') }
   }
 
   const liveUpdateMemberChest = async (name, chest) => {
@@ -267,7 +355,7 @@ function App() {
   }
 
   const navigate = (page) => { setActive(page); setMobileNavOpen(false) }
-  const handleSignOut = async () => { try { await supabase?.auth.signOut() } finally { setSession(null); setGuild(null); setCtaPlans([]); setRegearRequests([]); setMobileNavOpen(false) } }
+  const handleSignOut = async () => { try { await supabase?.auth.signOut() } finally { setSession(null); setGuild(null); setCtaPlans([]); setRegearEvents([]); setRegearRequests([]); setSearchMember(null); setMobileNavOpen(false) } }
 
   if (isSupabaseConfigured && authLoading) return <LoadingScreen text="Checking admin access..." />
   if (isSupabaseConfigured && !session) return publicView ? <PublicMemberShell onAdminLogin={() => setPublicView(false)} /> : <AuthGate onMemberView={() => setPublicView(true)} />
@@ -276,11 +364,12 @@ function App() {
   if (isSupabaseConfigured && session && liveError && !guild) return <ConnectionError message={liveError} onSignOut={() => supabase.auth.signOut()} />
 
   return <div className="app-shell">
-    <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.filter((request) => request.status !== 'regeared').length} />
+    <Sidebar active={active} onNavigate={navigate} userName={session?.user?.user_metadata?.username || session?.user?.email} userEmail={session?.user?.email} onSignOut={handleSignOut} mobileNavOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} ctaCount={regearRequests.filter((request) => request.status !== 'regeared' && request.status !== 'archived').length} />
     <main className="main-content">
       <Topbar query={query} setQuery={setQuery} onNotify={notify} onMenu={() => setMobileNavOpen(true)} onChat={() => { setNotificationsOpen(false); setChatOpen(true); setChatUnread(0) }} chatUnread={chatUnread} onNotifications={() => { setChatOpen(false); setNotificationsOpen((current) => !current) }} notificationUnread={notificationUnread} notificationsOpen={notificationsOpen} session={session} guild={guild} />
+      {query.trim() && <GlobalSearchOverlay query={query} members={members} requests={regearRequests} events={regearEvents} items={items} onClose={() => setQuery('')} onSelectMember={(member) => { setSearchMember(member); setQuery('') }} />}
       {active === 'Dashboard' && <DashboardAccurate members={members} items={items} requests={regearRequests} onOpenMember={() => setShowMemberModal(true)} onOpenDeath={() => { setDeathModalDate(dayKey(new Date())); setShowDeathModal(true) }} onNavigate={navigate} onMark={(target) => typeof target === 'string' ? liveMarkRegeared(target) : liveMarkRequestRegeared(target)} />}
-      {active === 'Daily regears' && <DailyRegearsPaginated requests={regearRequests} members={members} items={items} onAdd={(day) => { setDeathModalDate(day || dayKey(new Date())); setShowDeathModal(true) }} onEdit={(request) => setEditingRequest(request)} onMark={liveMarkRequestRegeared} onNotify={notify} />}
+      {active === 'Daily regears' && <DailyRegearsPaginatedV2 requests={regearRequests} events={regearEvents} members={members} items={items} onAdd={(day, event) => { setDeathModalDate(day || dayKey(new Date())); setDeathModalEvent(event || null); setShowDeathModal(true) }} onCreateEvent={(date) => setEventModal({ date })} onEditEvent={(event) => setEventModal(event)} onEdit={(request) => setEditingRequest(request)} onMark={liveMarkRequestRegeared} onArchive={liveArchiveRequest} onRestore={liveRestoreRequest} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
       {active === 'Armory' && <ArmoryWithWeaponsPaginated items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} onEdit={openItemEditor} onDelete={liveDeleteItem} />}
       {active === 'Settings' && <AdminSettings onNotify={notify} session={session} guild={guild} />}
@@ -290,8 +379,10 @@ function App() {
     <AdminNotificationCenter open={notificationsOpen} onClose={() => setNotificationsOpen(false)} session={session} guild={guild} onUnreadChange={setNotificationUnread} onSelect={() => setNotificationsOpen(false)} />
     {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={liveAddMember} />}
     {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} onSave={liveAddPlan} />}
-    {showDeathModal && <DeathModalDaily initialDate={deathModalDate} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => setShowDeathModal(false)} onSave={(payload) => liveReportDeath({ ...payload, items: payload.items.map((item) => typeof item === 'string' ? items.find((entry) => entry.name === item) || { name: item, category: 'Custom' } : item) })} />}
-    {editingRequest && <EditRegearModal request={editingRequest} items={items} onClose={() => setEditingRequest(null)} onSave={(payload) => liveEditRegear(editingRequest, payload)} onRequestAddItem={(category) => { setEditingRequest(null); openItemCatalog(category) }} />}
+    {showDeathModal && <DeathModalDailyV2 initialDate={deathModalDate} initialEvent={deathModalEvent} eventOptions={regearEvents} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => { setShowDeathModal(false); setDeathModalEvent(null) }} onSave={(payload) => liveReportDeathV2(payload)} />}
+    {editingRequest && <EditRegearModalV2 request={editingRequest} eventOptions={regearEvents} items={items} onClose={() => setEditingRequest(null)} onSave={(payload) => liveEditRegearV2(editingRequest, payload)} onRequestAddItem={(category) => { setEditingRequest(null); openItemCatalog(category) }} />}
+    {eventModal && <RegearEventModal initialEvent={eventModal} onClose={() => setEventModal(null)} onSave={async (payload) => { const saved = eventModal.id ? await liveEditRegearEvent({ ...eventModal, ...payload }) : await liveAddRegearEvent(payload); if (saved) setEventModal(null) }} />}
+    {searchMember && <AdminMemberHistoryModal member={searchMember} requests={regearRequests} onClose={() => setSearchMember(null)} />}
     {showItemModal && <ItemModal initialCategory={itemModalCategory} initialItem={editingItem} onClose={() => { setShowItemModal(false); setEditingItem(null) }} onSave={editingItem ? liveUpdateItem : liveAddItem} />}
     {toast && <div className="toast"><span className="toast-dot" />{toast}</div>}
   </div>
@@ -600,6 +691,73 @@ function DailyRegearsPaginated({ requests = [], onAdd, onEdit, onMark }) {
   const regearedRequests = visibleRequests.filter((request) => request.status === 'regeared')
   const activeRequests = activeTab === 'open' ? openRequests : regearedRequests
   return <div className="page"><PageIntro eyebrow="Casualty regear log" title="Daily regears" description="Open a day to see who died, which kit is assigned, and which requests have been closed." action="Add regear" onAction={() => onAdd(selectedDay)} /><div className="daily-layout"><aside className="panel day-list"><div className="day-list-heading"><span className="eyebrow">Death dates</span><strong>{days.length} days</strong></div>{days.map((day) => { const count = requests.filter((request) => dayKey(request.diedAt) === day); const open = count.filter((request) => request.status !== 'regeared').length; return <button type="button" className={`day-button ${selectedDay === day ? 'selected' : ''}`} key={day} onClick={() => setSelectedDay(day)}><span>{readableDay(day)}</span><small>{count.length} regears · {open} open</small></button> })}<label className="new-day-field">Open another date<input type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)} /></label></aside><section className="daily-detail"><div className="daily-detail-heading"><div><span className="eyebrow">Selected death date</span><h2>{readableDay(selectedDay)}</h2><p>{openRequests.length} open · {regearedRequests.length} regeared · {dayRequests.length} total records.</p></div><button type="button" className="button button-primary" onClick={() => onAdd(selectedDay)}>Add member regear</button></div><div className="daily-filters"><label>Filter by member<input value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Type a character name" /></label><label>Filter by role<select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label></div><div className="daily-status-tabs" role="tablist" aria-label="Regear status"><button type="button" role="tab" aria-selected={activeTab === 'open'} className={`daily-status-tab daily-status-tab-open ${activeTab === 'open' ? 'selected' : ''}`} onClick={() => setActiveTab('open')}><span>Open regear</span><strong>{openRequests.length}</strong></button><button type="button" role="tab" aria-selected={activeTab === 'regeared'} className={`daily-status-tab daily-status-tab-regeared ${activeTab === 'regeared' ? 'selected' : ''}`} onClick={() => setActiveTab('regeared')}><span>Regeared</span><strong>{regearedRequests.length}</strong></button></div><div className="daily-tab-panel" role="tabpanel"><DailyRequestSection title={activeTab === 'open' ? 'Open regears' : 'Regeared requests'} description={activeTab === 'open' ? 'Members still waiting for replacement kit.' : 'Completed requests, including who closed them.'} requests={activeRequests} emptyText={activeTab === 'open' ? (dayRequests.length ? 'No open records match these filters.' : 'No open deaths recorded for this date.') : (dayRequests.length ? 'No closed records match these filters.' : 'No regeared records for this date.')} onMark={onMark} onEdit={onEdit} closed={activeTab === 'regeared'} /></div></section></div></div>
+}
+
+function requestItemLines(request = {}) {
+  if (Array.isArray(request.items) && request.items.length) return request.items.map((item, index) => ({ ...item, name: item.name || item.item_name, quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: item.sortOrder ?? index }))
+  return [['Weapon', request.weapon], ['Off hand', request.offHand], ['Head', request.helmet], ['Armor', request.armor], ['Boots', request.boots]].filter(([, name]) => name).map(([category, name], index) => ({ category, name, quantity: 1, sortOrder: index }))
+}
+
+function requestDay(request) { return request.eventDate || dayKey(request.diedAt) }
+function requestEventKey(request) { return request.eventId || `legacy:${request.eventName || 'Unassigned event'}` }
+
+function RegearEntryV2({ request, onMark, onEdit, onArchive, onRestore }) {
+  const itemLines = requestItemLines(request)
+  const completionLabel = request.regearedAt ? `Regeared ${utcDateTime(request.regearedAt)}${request.regearedBy ? ` by ${request.regearedBy}` : ''}` : null
+  const activity = request.activity || []
+  const isArchived = request.status === 'archived'
+  return <article className={`panel regear-entry regear-entry-v2 ${isArchived ? 'regear-entry-archived' : ''}`}><div className="regear-entry-top"><div className="regear-member"><div className="avatar avatar-teal">{request.memberName?.[0]?.toUpperCase() || '?'}</div><div><h3>{request.memberName}</h3><span>{request.role || 'DPS'} · Chest {request.chest}</span></div></div><span className={`status status-${request.status === 'regeared' ? 'green' : isArchived ? 'blue' : 'ember'}`}>{request.status === 'regeared' ? 'Regeared' : isArchived ? 'Archived' : 'Open regear'}</span></div><div className="regear-entry-meta"><span>Died {utcDateTime(request.diedAt)}</span><span className="regear-event-meta">CTA/event: {request.eventName || 'Unassigned event'}</span><span className="regear-reported">Added by {request.reportedBy || 'Unknown admin'}</span>{completionLabel && <span className="regear-completion">{completionLabel}</span>}{isArchived && <span className="regear-archived-meta">Archived {utcDateTime(request.archivedAt)}{request.archivedBy ? ` by ${request.archivedBy}` : ''}</span>}</div><div className="regear-items regear-items-flexible">{itemLines.length ? itemLines.map((item, index) => <div key={item.id || `${item.category}-${item.name}-${index}`}><span>{item.category}</span><strong>{item.quantity > 1 ? `${item.quantity}× ` : ''}{item.name}</strong></div>) : <span>No replacement items selected</span>}</div>{activity.length > 0 && <details className="regear-activity"><summary>Admin activity <strong>{activity.length}</strong></summary><div className="regear-activity-list">{activity.slice().reverse().map((entry) => <div className="regear-activity-row" key={entry.id}><span>{entry.action}</span><strong>{entry.adminName || 'Unknown admin'}</strong><small>{utcDateTime(entry.at)}</small></div>)}</div></details>}<div className="regear-entry-actions"><button type="button" className="button button-ghost" onClick={() => onEdit(request)}><Icon name="edit" size={14} />Edit record</button>{request.status !== 'regeared' && !isArchived && <button type="button" className="button button-primary" onClick={() => onMark(request)}><Icon name="check" size={14} />Mark regeared</button>}{!isArchived && <button type="button" className="button button-danger" onClick={() => onArchive(request)}><Icon name="trash" size={14} />Archive</button>}{isArchived && <button type="button" className="button button-primary" onClick={() => onRestore(request)}>Restore to daily log</button>}</div></article>
+}
+
+function DailyRequestSectionV2({ title, description, requests, emptyText, onMark, onEdit, onArchive, onRestore, closed = false }) {
+  const [page, setPage] = useState(1)
+  const pageSize = 8
+  const totalPages = Math.max(1, Math.ceil(requests.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageRequests = requests.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const requestKey = requests.map((request) => request.id).join('|')
+  useEffect(() => { setPage(1) }, [requestKey])
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  return <section className={`daily-request-section ${closed ? 'daily-request-section-closed' : 'daily-request-section-open'}`}><div className="daily-request-heading"><div><h3>{title}</h3><p>{description}</p></div><span>{requests.length} {requests.length === 1 ? 'record' : 'records'}</span></div><div className="regear-entry-list">{pageRequests.map((request) => <RegearEntryV2 key={request.id} request={request} onMark={onMark} onEdit={onEdit} onArchive={onArchive} onRestore={onRestore} />)}{!requests.length && <EmptyState text={emptyText} />}</div><Pagination page={safePage} pageSize={pageSize} total={requests.length} onPageChange={setPage} /></section>
+}
+
+function RegearEventModal({ initialEvent, onClose, onSave }) {
+  const [name, setName] = useState(initialEvent.name || '')
+  const [date, setDate] = useState(initialEvent.date || dayKey(new Date()))
+  const [notes, setNotes] = useState(initialEvent.notes || '')
+  return <Modal title={initialEvent.id ? 'Edit CTA or event' : 'Add CTA or event'} eyebrow="Daily regear grouping" onClose={onClose}><div className="form-grid"><label>CTA or event name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Ava Roads CTA" required /></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label><label className="field-full">Notes<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional context for this event" /></label></div><div className="kit-callout"><Icon name="plan" size={18} /><div><strong>UTC daily log</strong><span>Deaths added to this event will stay together under this date and CTA name.</span></div></div><div className="modal-footer"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" disabled={!name.trim() || !date} onClick={() => onSave({ name: name.trim(), date, notes })}>{initialEvent.id ? 'Save event' : 'Add event'}</button></div></Modal>
+}
+
+function DailyRegearsPaginatedV2({ requests = [], events = [], onAdd, onEdit, onMark, onArchive, onRestore, onCreateEvent, onEditEvent }) {
+  const today = dayKey(new Date())
+  const [selectedDay, setSelectedDay] = useState(today)
+  const [selectedEventKey, setSelectedEventKey] = useState('')
+  const [memberFilter, setMemberFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState('All roles')
+  const [activeTab, setActiveTab] = useState('open')
+  const days = Array.from(new Set([today, ...requests.map(requestDay), ...events.map((event) => event.date)])).filter(Boolean).sort().reverse()
+  const allDayRequests = requests.filter((request) => requestDay(request) === selectedDay)
+  const activeDayRequests = allDayRequests.filter((request) => request.status !== 'archived')
+  const archivedDayRequests = allDayRequests.filter((request) => request.status === 'archived')
+  const dayRequests = activeTab === 'archived' ? archivedDayRequests : activeDayRequests
+  const eventTabs = useMemo(() => {
+    const result = []
+    events.filter((event) => event.date === selectedDay).forEach((event) => result.push({ id: event.id, name: event.name, event }))
+    dayRequests.forEach((request) => {
+      const id = requestEventKey(request)
+      if (!result.some((event) => event.id === id)) result.push({ id, name: request.eventName || 'Unassigned event', event: null })
+    })
+    return result
+  }, [events, selectedDay, dayRequests])
+  useEffect(() => { setSelectedEventKey(eventTabs[0]?.id || '') }, [selectedDay, activeTab])
+  useEffect(() => { if (!eventTabs.some((event) => event.id === selectedEventKey)) setSelectedEventKey(eventTabs[0]?.id || '') }, [eventTabs, selectedEventKey])
+  const selectedEvent = eventTabs.find((event) => event.id === selectedEventKey)
+  const eventRequests = dayRequests.filter((request) => !selectedEventKey || requestEventKey(request) === selectedEventKey)
+  const visibleRequests = eventRequests.filter((request) => (request.memberName || '').toLowerCase().includes(memberFilter.toLowerCase()) && (roleFilter === 'All roles' || request.role === roleFilter))
+  const openRequests = activeDayRequests.filter((request) => request.status !== 'regeared')
+  const regearedRequests = activeDayRequests.filter((request) => request.status === 'regeared')
+  const archiveCount = archivedDayRequests.length
+  return <div className="page"><PageIntro eyebrow="Casualty regear log" title="Daily regears" description="Choose a UTC date, open a CTA/event tab, then add and close each member regear inside that event." action="Add regear" onAction={() => onAdd(selectedDay, selectedEvent?.event || { date: selectedDay, name: selectedEvent?.name || 'Unassigned event' })} /><div className="daily-layout"><aside className="panel day-list"><div className="day-list-heading"><span className="eyebrow">Death dates</span><strong>{days.length} days</strong></div>{days.map((day) => { const count = requests.filter((request) => requestDay(request) === day && request.status !== 'archived'); const open = count.filter((request) => request.status !== 'regeared').length; return <button type="button" className={`day-button ${selectedDay === day ? 'selected' : ''}`} key={day} onClick={() => { setSelectedDay(day); setActiveTab('open'); setMemberFilter(''); setRoleFilter('All roles') }}><span>{readableDay(day)}</span><small>{count.length} records · {open} open</small></button> })}<label className="new-day-field">Open another date<input type="date" value={selectedDay} onChange={(event) => { setSelectedDay(event.target.value); setActiveTab('open') }} /></label></aside><section className="daily-detail"><div className="daily-detail-heading"><div><span className="eyebrow">Selected UTC date</span><h2>{readableDay(selectedDay)}</h2><p>{openRequests.length} open · {regearedRequests.length} regeared · {archiveCount} archived.</p></div><div className="daily-heading-actions"><button type="button" className="button button-ghost" onClick={() => onCreateEvent(selectedDay)}><Icon name="plus" size={14} />Add CTA/event</button><button type="button" className="button button-primary" onClick={() => onAdd(selectedDay, selectedEvent?.event || { date: selectedDay, name: selectedEvent?.name || 'Unassigned event' })}><Icon name="plus" size={14} />Add member regear</button></div></div><div className="daily-event-tabs" role="tablist" aria-label="CTA or event tabs">{eventTabs.map((tab) => <div className={`daily-event-tab-wrap ${selectedEventKey === tab.id ? 'selected' : ''}`} key={tab.id}><button type="button" role="tab" aria-selected={selectedEventKey === tab.id} className="daily-event-tab" onClick={() => setSelectedEventKey(tab.id)}><span>{tab.name}</span><strong>{dayRequests.filter((request) => requestEventKey(request) === tab.id).length}</strong></button>{tab.event && <button type="button" className="daily-event-edit" onClick={() => onEditEvent(tab.event)} aria-label={`Edit ${tab.name}`}><Icon name="edit" size={13} /></button>}</div>)}{!eventTabs.length && <div className="daily-event-empty">No CTA/event yet. Add one to start this date.</div>}</div><div className="daily-filters"><label>Filter by member<input value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Type a character name" /></label><label>Filter by role<select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label></div><div className="daily-status-tabs daily-status-tabs-three" role="tablist" aria-label="Regear status"><button type="button" role="tab" aria-selected={activeTab === 'open'} className={`daily-status-tab daily-status-tab-open ${activeTab === 'open' ? 'selected' : ''}`} onClick={() => setActiveTab('open')}><span>Open regear</span><strong>{openRequests.filter((request) => !selectedEventKey || requestEventKey(request) === selectedEventKey).length}</strong></button><button type="button" role="tab" aria-selected={activeTab === 'regeared'} className={`daily-status-tab daily-status-tab-regeared ${activeTab === 'regeared' ? 'selected' : ''}`} onClick={() => setActiveTab('regeared')}><span>Regeared</span><strong>{regearedRequests.filter((request) => !selectedEventKey || requestEventKey(request) === selectedEventKey).length}</strong></button><button type="button" role="tab" aria-selected={activeTab === 'archived'} className={`daily-status-tab daily-status-tab-archived ${activeTab === 'archived' ? 'selected' : ''}`} onClick={() => setActiveTab('archived')}><span>Archived</span><strong>{archiveCount}</strong></button></div><div className="daily-tab-panel" role="tabpanel"><DailyRequestSectionV2 title={activeTab === 'open' ? 'Open regears' : activeTab === 'regeared' ? 'Regeared requests' : 'Archived records'} description={activeTab === 'open' ? 'Members still waiting for replacement kit.' : activeTab === 'regeared' ? 'Completed requests, including who closed them.' : 'Hidden from the active daily log. Restore a record when it belongs back in operations.'} requests={visibleRequests.filter((request) => activeTab === 'open' ? request.status !== 'regeared' : activeTab === 'regeared' ? request.status === 'regeared' : request.status === 'archived')} emptyText={activeTab === 'open' ? 'No open records match these filters.' : activeTab === 'regeared' ? 'No regeared records match these filters.' : 'No archived records match this date and event.'} onMark={onMark} onEdit={onEdit} onArchive={onArchive} onRestore={onRestore} closed={activeTab !== 'open'} /></div></section></div></div>
 }
 
 function DailyRegearsPaginatedOld({ requests = [], onAdd, onMark }) {
@@ -937,7 +1095,7 @@ function publicDayKey(value) {
   return `${year}-${month}-${day}`
 }
 
-function PublicMemberHistoryPaginated({ member }) {
+function PublicMemberHistoryPaginatedLegacy({ member }) {
   const history = member.history || []
   const pageSize = 4
   const firstHistoryDate = history[0]?.diedAt ? new Date(history[0].diedAt) : new Date()
@@ -960,6 +1118,41 @@ function PublicMemberHistoryPaginated({ member }) {
 
   return <section className="public-member-history" aria-label={`${member.name} regear history`}><div className="public-history-heading"><div><span className="eyebrow">Member record</span><h2>{member.name}'s regear history</h2><p>{history.length ? `${history.length} death ${history.length === 1 ? 'report' : 'reports'} · Issue chest ${member.chest || 'Unassigned'}` : 'No death reports have been recorded for this member.'}</p></div><span className="public-history-count">{history.length}</span></div><div className="public-history-tools"><div className="public-history-calendar"><div className="public-calendar-heading"><div><span className="eyebrow">Browse by death date</span><strong>{monthLabel}</strong></div><div className="public-calendar-actions"><button type="button" onClick={() => changeMonth(-1)} aria-label="Previous month"><Icon name="chevron" size={15} /></button><button type="button" onClick={() => changeMonth(1)} aria-label="Next month"><Icon name="chevron" size={15} /></button></div></div><div className="public-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div><div className="public-calendar-grid">{calendarCells.map((day, index) => { const dateKey = day ? `${calendarYear}-${String(calendarMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : ''; const hasRecords = historyDays.has(dateKey); return day ? <button type="button" key={dateKey} className={`public-calendar-day ${hasRecords ? 'has-records' : ''} ${selectedDay === dateKey ? 'selected' : ''}`} disabled={!hasRecords} onClick={() => chooseDay(day)} aria-label={`${monthLabel} ${day}${hasRecords ? ', has regear records' : ', no regear records'}`} aria-pressed={selectedDay === dateKey}>{day}{hasRecords && <i />}</button> : <span className="public-calendar-blank" key={`blank-${index}`} aria-hidden="true" /> })}</div><div className="public-calendar-footer"><span><i /> Death date with records</span><button type="button" className={!selectedDay ? 'active' : ''} onClick={() => { setSelectedDay(''); setPage(1) }}>All dates</button></div></div><div className="public-history-filter"><span className="eyebrow">History view</span><strong>{selectedDay ? publicDate(`${selectedDay}T12:00:00`) : 'All recorded dates'}</strong><span>{filteredHistory.length} {filteredHistory.length === 1 ? 'record' : 'records'} shown</span></div></div>{filteredHistory.length > 0 ? <div className="public-history-list">{pageHistory.map((request) => { const statusKey = String(request.status || '').toLowerCase(); const isRegeared = statusKey === 'regeared'; const isIssued = statusKey === 'issued'; const statusLabel = isRegeared ? 'Regeared' : isIssued ? 'Kit issued' : 'Open regear'; const statusClass = isRegeared ? 'status-green' : isIssued ? 'status-blue' : 'status-ember'; const gear = [['Weapon', request.weapon], ['Off hand', request.offHand], ['Headgear', request.helmet], ['Armor', request.armor], ['Boots', request.boots]]; return <article className="public-history-entry" key={request.id}><div className="public-history-entry-top"><div><span className="public-history-date">Death reported · {publicDate(request.diedAt, true)}</span><h3>{request.role || member.role || 'DPS'} regear</h3></div><span className={`status ${statusClass}`}>{statusLabel}</span></div><div className="public-history-meta"><span>Issue chest <strong>{request.chest || member.chest || 'Unassigned'}</strong></span>{isRegeared ? <span>Completed <strong>{publicDate(request.regearedAt, true)}</strong>{request.regearedBy ? <> by <strong>{request.regearedBy}</strong></> : ''}</span> : <span>Waiting for guild regear</span>}</div>{request.deathNote && <p className="public-history-note">{request.deathNote}</p>}<div className="public-history-gear">{gear.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value || 'Not listed'}</strong></div>)}</div></article> })}</div> : <div className="public-history-empty"><span className="public-result-icon"><Icon name="plan" size={18} /></span><strong>{selectedDay ? 'No regear records on this date' : 'No regear history yet'}</strong><span>{selectedDay ? 'Choose another highlighted date or return to all dates.' : 'When an administrator records a death, the request and its replacement kit will appear here.'}</span></div>}<Pagination page={safePage} pageSize={pageSize} total={filteredHistory.length} onPageChange={setPage} /></section>
 }
+
+function HistoryEntry({ request, member, adminMode = false }) {
+  const statusKey = String(request.status || '').toLowerCase()
+  const isRegeared = statusKey === 'regeared'
+  const isIssued = statusKey === 'issued'
+  const statusLabel = isRegeared ? 'Regeared' : isIssued ? 'Kit issued' : 'Open regear'
+  const statusClass = isRegeared ? 'status-green' : isIssued ? 'status-blue' : 'status-ember'
+  const itemLines = requestItemLines(request)
+  return <article className="public-history-entry"><div className="public-history-entry-top"><div><span className="public-history-date">Death reported · {publicDate(request.diedAt, true)}</span><h3>{request.role || member.role || 'DPS'} regear</h3><small className="public-history-event">CTA/event: {request.eventName || 'Unassigned event'}</small></div><span className={`status ${statusClass}`}>{statusLabel}</span></div><div className="public-history-meta"><span>Issue chest <strong>{request.chest || member.chest || 'Unassigned'}</strong></span>{isRegeared ? <span>Completed <strong>{publicDate(request.regearedAt, true)}</strong>{request.regearedBy ? <> by <strong>{request.regearedBy}</strong></> : ''}</span> : <span>Waiting for guild regear</span>}</div>{request.deathNote && <p className="public-history-note">{request.deathNote}</p>}<div className="public-history-gear">{itemLines.length ? itemLines.map((item, index) => <div key={item.id || `${item.category}-${item.name}-${index}`}><span>{item.category}</span><strong>{item.quantity > 1 ? `${item.quantity}× ` : ''}{item.name}</strong></div>) : <div><span>Replacement kit</span><strong>Not listed</strong></div>}</div>{adminMode && <div className="admin-history-audit"><span>Added by <strong>{request.reportedBy || 'Unknown admin'}</strong></span>{request.activity?.length > 0 && <details><summary>{request.activity.length} audit {request.activity.length === 1 ? 'entry' : 'entries'}</summary>{request.activity.slice().reverse().map((entry) => <small key={entry.id}>{entry.action} · {entry.adminName || 'Unknown admin'} · {utcDateTime(entry.at)}</small>)}</details>}</div>}</article>
+}
+
+function PublicMemberHistoryPaginatedV2({ member, adminMode = false }) {
+  const history = (member.history || []).filter((request) => request.status !== 'archived')
+  const pageSize = 4
+  const firstHistoryDate = history[0]?.diedAt ? new Date(history[0].diedAt) : new Date()
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(Date.UTC(firstHistoryDate.getUTCFullYear(), firstHistoryDate.getUTCMonth(), 1)))
+  const [selectedDay, setSelectedDay] = useState('')
+  const [page, setPage] = useState(1)
+  const historyDays = useMemo(() => new Set(history.map((request) => publicDayKey(request.diedAt)).filter(Boolean)), [history])
+  const filteredHistory = useMemo(() => selectedDay ? history.filter((request) => publicDayKey(request.diedAt) === selectedDay) : history, [history, selectedDay])
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageHistory = filteredHistory.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const calendarYear = calendarMonth.getUTCFullYear()
+  const calendarMonthIndex = calendarMonth.getUTCMonth()
+  const daysInMonth = new Date(Date.UTC(calendarYear, calendarMonthIndex + 1, 0)).getUTCDate()
+  const firstWeekday = new Date(Date.UTC(calendarYear, calendarMonthIndex, 1)).getUTCDay()
+  const calendarCells = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1)
+  const monthLabel = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(calendarMonth)
+  const changeMonth = (amount) => setCalendarMonth((current) => new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + amount, 1)))
+  const chooseDay = (day) => { const nextDay = `${calendarYear}-${String(calendarMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; setSelectedDay(nextDay); setPage(1) }
+  return <section className={`public-member-history ${adminMode ? 'admin-member-history' : ''}`} aria-label={`${member.name} regear history`}><div className="public-history-heading"><div><span className="eyebrow">{adminMode ? 'Administrator view' : 'Member record'}</span><h2>{member.name}'s regear history</h2><p>{history.length ? `${history.length} death ${history.length === 1 ? 'report' : 'reports'} · Issue chest ${member.chest || 'Unassigned'}` : 'No death reports have been recorded for this member.'}</p></div><span className="public-history-count">{history.length}</span></div><div className="public-history-tools"><div className="public-history-calendar"><div className="public-calendar-heading"><div><span className="eyebrow">Browse by death date</span><strong>{monthLabel}</strong></div><div className="public-calendar-actions"><button type="button" onClick={() => changeMonth(-1)} aria-label="Previous month"><Icon name="chevron" size={15} /></button><button type="button" onClick={() => changeMonth(1)} aria-label="Next month"><Icon name="chevron" size={15} /></button></div></div><div className="public-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div><div className="public-calendar-grid">{calendarCells.map((day, index) => { const dateKey = day ? `${calendarYear}-${String(calendarMonthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : ''; const hasRecords = historyDays.has(dateKey); return day ? <button type="button" key={dateKey} className={`public-calendar-day ${hasRecords ? 'has-records' : ''} ${selectedDay === dateKey ? 'selected' : ''}`} disabled={!hasRecords} onClick={() => chooseDay(day)} aria-label={`${monthLabel} ${day}${hasRecords ? ', has regear records' : ', no regear records'}`} aria-pressed={selectedDay === dateKey}>{day}{hasRecords && <i />}</button> : <span className="public-calendar-blank" key={`blank-${index}`} aria-hidden="true" /> })}</div><div className="public-calendar-footer"><span><i /> Death date with records</span><button type="button" className={!selectedDay ? 'active' : ''} onClick={() => { setSelectedDay(''); setPage(1) }}>All dates</button></div></div><div className="public-history-filter"><span className="eyebrow">History view</span><strong>{selectedDay ? publicDate(`${selectedDay}T12:00:00`) : 'All recorded dates'}</strong><span>{filteredHistory.length} {filteredHistory.length === 1 ? 'record' : 'records'} shown</span></div></div>{filteredHistory.length > 0 ? <div className="public-history-list">{pageHistory.map((request) => <HistoryEntry key={request.id} request={request} member={member} adminMode={adminMode} />)}</div> : <div className="public-history-empty"><span className="public-result-icon"><Icon name="plan" size={18} /></span><strong>{selectedDay ? 'No regear records on this date' : 'No regear history yet'}</strong><span>{selectedDay ? 'Choose another highlighted date or return to all dates.' : 'When an administrator records a death, the request and its replacement kit will appear here.'}</span></div>}<Pagination page={safePage} pageSize={pageSize} total={filteredHistory.length} onPageChange={setPage} /></section>
+}
+
+function PublicMemberHistoryPaginated({ member, adminMode = false }) { return <PublicMemberHistoryPaginatedV2 member={member} adminMode={adminMode} /> }
 
 function MemberViewV2({ onNotify }) { return <MemberViewLive onNotify={onNotify} /> }
 
@@ -989,6 +1182,46 @@ function utcIsoFromFields(dateValue, timeValue) {
   const hour = match ? Math.min(23, Number(match[1])) : 0
   const minute = match ? Math.min(59, Number(match[2])) : 0
   return new Date(`${dateValue || dayKey(new Date())}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00Z`).toISOString()
+}
+
+function RegearItemsEditor({ items, value = [], onChange, onAddItem }) {
+  const categories = ['Weapon', 'Off hand', 'Head', 'Armor', 'Boots', 'Custom']
+  const categoryItems = (category) => items.filter((item) => item.category === category || (category === 'Head' && item.category === 'Helmet'))
+  const addLine = (category) => onChange([...value, { id: `draft-${Date.now()}-${category}`, category, name: '', quantity: 1 }])
+  const updateLine = (index, changes) => onChange(value.map((line, lineIndex) => lineIndex === index ? { ...line, ...changes } : line))
+  const removeLine = (index) => onChange(value.filter((_, lineIndex) => lineIndex !== index))
+  return <div className="regear-item-editor">{categories.map((category) => { const lines = value.map((line, index) => ({ ...line, index })).filter((line) => line.category === category); const options = categoryItems(category); const listId = `regear-items-${category.toLowerCase().replace(/\s+/g, '-')}`; return <section className="regear-item-group" key={category}><div className="regear-item-group-heading"><div><span>{category}</span><small>{lines.length ? `${lines.length} line${lines.length === 1 ? '' : 's'}` : 'Optional'}</small></div><button type="button" className="slot-add" onClick={() => addLine(category)}><Icon name="plus" size={13} />Add line</button></div>{lines.map((line) => <div className="regear-item-line" key={line.id || `${category}-${line.index}`}><input list={listId} value={line.name || ''} onChange={(event) => updateLine(line.index, { name: event.target.value })} placeholder={`Type ${category.toLowerCase()} name`} /><input className="quantity-input" type="number" min="1" step="1" value={line.quantity || 1} onChange={(event) => updateLine(line.index, { quantity: event.target.value })} aria-label={`${category} quantity`} /><button type="button" className="icon-button subtle-danger" onClick={() => removeLine(line.index)} aria-label={`Remove ${category} line`}><Icon name="trash" size={14} /></button></div>)}<datalist id={listId}>{options.map((item) => <option key={item.id || `${item.name}-${item.tier}`} value={item.name}>{item.tier && item.tier !== 'Unspecified' ? `Tier ${item.tier}` : ''}</option>)}</datalist>{category !== 'Custom' && <button type="button" className="regear-add-catalog" onClick={() => onAddItem(category)}>Missing a {category.toLowerCase()}? Add it to the armory</button>}</section> })}</div>
+}
+
+function DeathModalDailyV2({ initialDate, initialEvent, eventOptions = [], members, items, onRequestAddItem, onClose, onSave }) {
+  const today = dayKey(new Date())
+  const [memberName, setMemberName] = useState('')
+  const [memberQuery, setMemberQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [role, setRole] = useState('DPS')
+  const [eventName, setEventName] = useState(initialEvent?.name || '')
+  const [diedDate, setDiedDate] = useState(initialEvent?.date || initialDate || today)
+  const [diedTime, setDiedTime] = useState(() => utcClockTime(new Date()))
+  const [chest, setChest] = useState('')
+  const [note, setNote] = useState('')
+  const [itemLines, setItemLines] = useState([])
+  const selectedMember = members.find((member) => member.name === memberName)
+  const suggestions = members.filter((member) => member.name.toLowerCase().includes(memberQuery.toLowerCase())).slice(0, 7)
+  const chooseMember = (member) => { setMemberName(member.name); setMemberQuery(member.name); setRole('DPS'); setChest(member.chest || 'Unassigned'); setOpen(false) }
+  const save = () => onSave({ memberId: selectedMember.id, memberName, role, eventId: initialEvent?.id && eventName.trim() === initialEvent.name && diedDate === initialEvent.date ? initialEvent.id : null, eventName: eventName.trim() || 'Unassigned event', eventDate: diedDate, diedAt: utcIsoFromFields(diedDate, diedTime), chest: chest.trim() || 'Unassigned', note: note.trim() || `Death during ${eventName.trim() || 'Unassigned event'}`, items: itemLines.filter((item) => item.name?.trim()).map((item, index) => ({ ...item, name: item.name.trim(), quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: index })) })
+  return <Modal title="Add daily regear" eyebrow="Record a member death" onClose={onClose}><div className="form-grid"><div className="member-search-field"><label>Member</label><div className="member-search"><Icon name="search" size={15} /><input autoFocus value={memberQuery} onFocus={() => setOpen(true)} onChange={(event) => { setMemberQuery(event.target.value); setMemberName(''); setOpen(true) }} placeholder="Search character name..." /></div>{open && memberQuery.trim() && <div className="member-suggestion-box">{suggestions.map((member) => <button type="button" key={member.id || member.name} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseMember(member)}><span className={`avatar avatar-${member.tone}`}>{member.avatar}</span><span><strong>{member.name}</strong><small>Issue chest {member.chest}</small></span></button>)}{!suggestions.length && <span className="suggestion-empty">No roster member found.</span>}</div>}</div><label>Role for this death<select value={role} onChange={(event) => setRole(event.target.value)}>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label><label>Death date (UTC)<input type="date" value={diedDate} onChange={(event) => setDiedDate(event.target.value)} required /></label><label>Death time (UTC · 24-hour)<input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" maxLength="5" value={diedTime} onChange={(event) => setDiedTime(event.target.value.replace(/[^0-9:]/g, '').slice(0, 5))} placeholder="21:30" required /></label><label>CTA or event name<input list="daily-event-names" value={eventName} onChange={(event) => setEventName(event.target.value)} placeholder="e.g. Ava Roads CTA" required /><datalist id="daily-event-names">{eventOptions.map((event) => <option key={event.id} value={event.name} />)}</datalist></label><label>Death note<input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note" /></label><label>Issue chest<input value={chest} onChange={(event) => setChest(event.target.value)} placeholder="Auto-filled from member" /></label><div className="field-full"><label>Replacement items and quantities</label><small className="field-help">Add one or more lines per category. Quantity is how many of that item this regear needs.</small><RegearItemsEditor items={items} value={itemLines} onChange={setItemLines} onAddItem={onRequestAddItem} /></div></div><div className="death-callout"><div className="death-pulse" /><div><strong>New open regear</strong><span>{selectedMember ? `${selectedMember.name} · ${role} · Chest ${chest || 'unassigned'} · ${eventName || 'Unassigned event'}` : 'Search for the member who died'}</span></div></div><div className="modal-footer"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" disabled={!selectedMember || !eventName.trim() || !diedDate || !diedTime} onClick={save}><Icon name="swords" size={15} />Add daily regear</button></div></Modal>
+}
+
+function EditRegearModalV2({ request, eventOptions = [], items, onRequestAddItem, onClose, onSave }) {
+  const [role, setRole] = useState(request.role || 'DPS')
+  const [eventName, setEventName] = useState(request.eventName || 'Unassigned event')
+  const [eventDate, setEventDate] = useState(request.eventDate || utcDatePart(request.diedAt))
+  const [diedTime, setDiedTime] = useState(utcClockTime(request.diedAt))
+  const [note, setNote] = useState(request.deathNote || '')
+  const [chest, setChest] = useState(request.chest || 'Unassigned')
+  const [itemLines, setItemLines] = useState(() => requestItemLines(request))
+  const save = () => onSave({ role, eventName: eventName.trim() || 'Unassigned event', eventDate, eventId: eventName.trim() === request.eventName && eventDate === request.eventDate ? request.eventId : null, diedAt: utcIsoFromFields(eventDate, diedTime), note: note.trim() || 'Death reported', chest: chest.trim() || 'Unassigned', items: itemLines.filter((item) => item.name?.trim()).map((item, index) => ({ ...item, name: item.name.trim(), quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: index })) })
+  return <Modal title="Edit regear record" eyebrow="Correct death, CTA, or issue details" onClose={onClose}><div className="edit-regear-member"><div className="avatar avatar-teal">{request.memberName?.[0]?.toUpperCase() || '?'}</div><div><strong>{request.memberName}</strong><span>Open and completed records can be corrected. Every change is audited.</span></div></div><div className="form-grid"><label>Role for this death<select value={role} onChange={(event) => setRole(event.target.value)}>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label><label>Death date (UTC)<input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} required /></label><label>Death time (UTC · 24-hour)<input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" maxLength="5" value={diedTime} onChange={(event) => setDiedTime(event.target.value.replace(/[^0-9:]/g, '').slice(0, 5))} placeholder="21:30" required /></label><label>CTA or event name<input list="edit-event-names" value={eventName} onChange={(event) => setEventName(event.target.value)} required /><datalist id="edit-event-names">{eventOptions.map((event) => <option key={event.id} value={event.name} />)}</datalist></label><label>Death note<input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Death reported" /></label><label>Issue chest<input value={chest} onChange={(event) => setChest(event.target.value)} /></label><div className="field-full"><label>Replacement items and quantities</label><RegearItemsEditor items={items} value={itemLines} onChange={setItemLines} onAddItem={onRequestAddItem} /></div></div><div className="modal-footer"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" onClick={save}><Icon name="edit" size={14} />Save record</button></div></Modal>
 }
 
 function DeathModalDaily({ initialDate, members, items, onRequestAddItem, onClose, onSave }) {
@@ -1045,7 +1278,7 @@ function ItemModal({ onClose, onSave, initialCategory, initialItem }) { return <
 function PlanModal({ onClose, onSave }) { const [name, setName] = useState(''); const [budget, setBudget] = useState(''); const [date, setDate] = useState(''); const [time, setTime] = useState(''); const save = () => onSave({ name: name.trim(), budget, startsAt: new Date(`${date}T${time}:00Z`).toISOString() }); return <Modal title="Schedule CTA" eyebrow="CTA event" onClose={onClose}><div className="form-grid"><label>CTA name<input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Avalonian Roads" /></label><label>Default kit template<select defaultValue="Caller standard"><option>Tank standard</option><option>Support standard</option><option>Healer standard</option><option>DPS standard</option><option>Bomb standard</option><option>Caller standard</option></select></label><label>Date<input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label><label>Start time (UTC)<input type="time" value={time} onChange={(e) => setTime(e.target.value)} required /></label><label>Attendees<select defaultValue="Select members"><option>Select members</option><option>All classified members</option><option>All active members</option></select></label><label>Silver budget<input value={budget} onChange={(e) => setBudget(e.target.value)} inputMode="numeric" placeholder="Optional" /></label></div><div className="kit-callout"><Icon name="swords" size={18} /><div><strong>Template for casualty requests</strong><span>When a death is reported, this template can fill replacement items for that role.</span></div></div><div className="modal-footer"><button className="button button-ghost" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={!name.trim() || !date || !time} onClick={save}>Schedule CTA</button></div></Modal> }
 
 function DashboardAccurate({ members, items = [], requests = [], onOpenMember, onOpenDeath, onNavigate, onMark }) {
-  const openRequests = requests.filter((request) => request.status !== 'regeared')
+  const openRequests = requests.filter((request) => request.status !== 'regeared' && request.status !== 'archived')
   const needs = requests.length ? openRequests.map((request) => {
     const member = members.find((entry) => entry.id === request.memberId)
     const name = request.memberName || member?.name || 'Unknown member'
@@ -1130,6 +1363,23 @@ function AdminNotificationCenter({ open, onClose, session, guild, onUnreadChange
 
   if (!open) return null
   return <><button type="button" className="notification-popover-backdrop" onClick={onClose} aria-label="Close notifications" /><section className="notification-popover" role="dialog" aria-modal="true" aria-labelledby="notifications-title"><header className="notification-popover-header"><div><span className="eyebrow">Coup De Grace</span><h2 id="notifications-title">Notifications</h2><p>Recent activity from your administrator team.</p></div><button type="button" className="close-button" onClick={onClose} aria-label="Close notifications"><Icon name="close" size={18} /></button></header><div className="notification-list" aria-live="polite">{loading && <div className="notification-empty"><div className="public-loader" /><span>Loading activity...</span></div>}{!loading && error && !notifications.length && <div className="notification-empty notification-error"><span className="notification-empty-icon"><Icon name="bell" size={18} /></span><strong>Notifications need setup</strong><span>{error}</span><small>Run supabase/admin_notifications.sql once, then refresh.</small></div>}{!loading && !error && !notifications.length && <div className="notification-empty"><span className="notification-empty-icon"><Icon name="bell" size={18} /></span><strong>No new activity</strong><span>Changes from your admin team will appear here.</span></div>}{notifications.map((entry) => <button type="button" className={entry.isRead ? 'notification-item' : 'notification-item unread'} key={entry.id} onClick={onSelect}><span className={'notification-item-icon notification-type-' + entry.type}><Icon name={notificationIcon(entry.type)} size={16} /></span><span className="notification-item-copy"><strong>{entry.title}</strong><span><b className="notification-actor">{entry.actorName}</b><span className="notification-separator"> · </span>{entry.body}</span><small>{notificationTime(entry.createdAt)}</small></span>{!entry.isRead && <i className="notification-item-dot" />}</button>)}{error && notifications.length > 0 && <div className="notification-inline-error" role="alert">{error}</div>}</div><footer className="notification-popover-footer"><span><i /> Live activity feed</span><small>{notifications.length} recent {notifications.length === 1 ? 'event' : 'events'}</small></footer></section></>
+}
+
+function GlobalSearchOverlay({ query, members = [], requests = [], events = [], items = [], onClose, onSelectMember }) {
+  useEffect(() => { const handleKeyDown = (event) => { if (event.key === 'Escape') onClose() }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown) }, [onClose])
+  const normalized = query.trim().toLowerCase()
+  const memberMatches = members.filter((member) => member.name?.toLowerCase().includes(normalized)).sort(compareMembersByChest).slice(0, 6)
+  const searchableEvents = [...events, ...requests.filter((request) => request.eventName && !events.some((event) => event.id === request.eventId)).map((request) => ({ id: `request-event-${request.id}`, date: request.eventDate || dayKey(request.diedAt), name: request.eventName }))]
+  const eventMatches = searchableEvents.filter((event, index, list) => event.name?.toLowerCase().includes(normalized) && list.findIndex((candidate) => candidate.name.toLowerCase() === event.name.toLowerCase() && candidate.date === event.date) === index).slice(0, 4)
+  const itemMatches = items.filter((item) => `${item.name} ${item.category} ${item.tier}`.toLowerCase().includes(normalized)).slice(0, 4)
+  const hasResults = memberMatches.length || eventMatches.length || itemMatches.length
+  return <><button type="button" className="global-search-backdrop" onClick={onClose} aria-label="Close global search" /><section className="global-search-popover" role="dialog" aria-label="Global search results"><div className="global-search-heading"><div><span className="eyebrow">Workspace search</span><h2>Search results</h2><p>Find members, death reports, CTA/events, and armory items.</p></div><button type="button" className="close-button" onClick={onClose} aria-label="Close search"><Icon name="close" size={17} /></button></div>{!hasResults && <div className="global-search-empty"><Icon name="search" size={19} /><strong>No matching records</strong><span>Try an IGN, CTA/event name, or item name.</span></div>}{memberMatches.length > 0 && <div className="global-search-group"><span className="eyebrow">Members</span>{memberMatches.map((member) => { const memberRequests = requests.filter((request) => request.memberId === member.id && request.status !== 'archived'); const openCount = memberRequests.filter((request) => request.status !== 'regeared').length; return <button type="button" className="global-search-row" key={member.id || member.name} onClick={() => onSelectMember(member)}><span className={`avatar avatar-${member.tone}`}>{member.avatar}</span><span className="global-search-row-copy"><strong>{member.name}</strong><small>Chest {member.chest} · {memberRequests.length} death {memberRequests.length === 1 ? 'report' : 'reports'}{openCount ? ` · ${openCount} open` : ''}</small></span><Icon name="arrow" size={15} /></button>})}</div>}{eventMatches.length > 0 && <div className="global-search-group"><span className="eyebrow">CTA and events</span>{eventMatches.map((event) => <div className="global-search-static-row" key={event.id}><span className="global-search-static-icon"><Icon name="plan" size={15} /></span><span><strong>{event.name}</strong><small>{readableDay(event.date)}</small></span></div>)}</div>}{itemMatches.length > 0 && <div className="global-search-group"><span className="eyebrow">Armory items</span>{itemMatches.map((item) => <div className="global-search-static-row" key={item.id || `${item.name}-${item.tier}`}><span className="global-search-static-icon"><Icon name="box" size={15} /></span><span><strong>{item.name}</strong><small>{item.category} · {item.tier === 'Unspecified' ? 'Tier not set' : `Tier ${item.tier}`}</small></span></div>)}</div>}<div className="global-search-footer"><span>Click a member to open complete regear history</span><kbd>ESC</kbd></div></section></>
+}
+
+function AdminMemberHistoryModal({ member, requests = [], onClose }) {
+  const history = requests.filter((request) => request.memberId === member.id && request.status !== 'archived').sort((first, second) => new Date(second.diedAt).getTime() - new Date(first.diedAt).getTime())
+  const historyMember = { ...member, history }
+  return <Modal title={`${member.name} history`} eyebrow="Global member search" onClose={onClose}><div className="admin-history-summary"><div className={`avatar avatar-${member.tone}`}>{member.avatar}</div><div><strong>{member.name}</strong><span>Issue chest {member.chest} · {history.length} death {history.length === 1 ? 'report' : 'reports'}</span></div></div><PublicMemberHistoryPaginated member={historyMember} adminMode /></Modal>
 }
 
 function PageIntro({ eyebrow, title, description, action, onAction }) { return <div className="page-intro"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action && <button className="button button-primary" onClick={onAction}><Icon name="plus" size={16} />{action}</button>}</div> }

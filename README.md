@@ -1,6 +1,6 @@
 # Albion Regear
 
-Guild quartermaster dashboard for Albion Online. This first pass is a responsive React/Vite prototype with mock data and working admin interactions.
+Guild quartermaster dashboard for Albion Online. This is a responsive React/Vite admin workspace for tracking member deaths and guild regears.
 
 ## Run locally
 
@@ -18,19 +18,21 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 ## Current prototype behavior
 
 - Admin dashboard with attention queue, plans, activity, and armory health.
-- CTA event list with upcoming/in-progress/complete states.
-- Death-to-regear workflow: report a CTA casualty, select needed pieces, then mark the request issued/regeared.
+- Daily regear workflow grouped by UTC date, then CTA/event tabs.
+- Death-to-regear workflow: report a casualty, add multiple replacement item lines with quantities, then mark the request regeared.
+- Global search for member IGNs, CTA/event names, and armory items. Member results open paginated, calendar-based regear history.
+- Regear records can be edited after completion, archived out of the daily log, restored later, and audited by administrator name.
 - Member roster with search, add member, and mark-ready interactions.
 - Role classification and filtering for Tank, Support, Healer, DPS, Bomb, and Caller.
 - Plan budgets, issuing-admin history, and role-based kit template scaffolding.
-- Armory inventory with chest location and stock health.
+- Armory inventory with stock health.
 - Free-text chest locations that admins can update inline.
 - Supabase-backed item catalog shape with autocomplete-ready names and admin add-item flow.
 - Member default issue chests are reused automatically when creating a death request, while the CTA role can be overridden per request.
-- Read-only member board showing the next CTA, assigned chest, and kit slots without member accounts.
+- Read-only member board showing assigned chest and regear history without member accounts.
 - Closed admin access: the first admin is bootstrapped by Gmail, then existing admins invite additional Gmail addresses.
 - Settings screen and responsive layout for smaller screens.
-- Mock state is intentionally in-memory until Supabase is connected.
+- Supabase is used for the live workspace; local mock state remains available when environment variables are absent.
 
 ## Suggested next backend steps
 
@@ -38,6 +40,7 @@ When Supabase is ready, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as 
 2. Run `supabase/policies.sql` to allow linked administrators to access the private workspace through the browser client.
 3. Add the first Gmail admin in Supabase Auth, then link that Auth user in `public.guild_admins`.
 4. The app now loads members, items, and regear requests through Supabase and saves member chests, catalog items, and death reports.
-5. Add a public member view keyed by a one-time invite code, with no write permissions.
+5. For an existing project, run [`supabase/daily_regear_upgrade.sql`](supabase/daily_regear_upgrade.sql) after `policies.sql`. This adds CTA/event tabs, flexible item quantities, archive fields, and migrates old one-item-per-slot records. Then run [`supabase/admin_notifications.sql`](supabase/admin_notifications.sql) again to audit CTA/event changes.
+6. The public member view reads the same flexible item lines and hides archived records; it has no write permissions.
 
 The safest member flow is one public guild link with a private, expiring member invite code for personal kit details. Admins use Supabase Auth with the bootstrap Gmail address and invitation-only admin access; there is no public admin self-registration.

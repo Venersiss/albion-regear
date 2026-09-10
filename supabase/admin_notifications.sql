@@ -91,6 +91,11 @@ begin
     subject_value := coalesce(row_data ->> 'name', 'an armory item');
     title_value := case when tg_op = 'INSERT' then 'Armory item added' when tg_op = 'DELETE' then 'Armory item removed' else 'Armory item updated' end;
     body_value := subject_value || case when tg_op = 'INSERT' then ' was added to the catalog.' when tg_op = 'DELETE' then ' was removed from the catalog.' else ' was updated.' end;
+  elsif tg_table_name = 'regear_events' then
+    type_value := 'regear';
+    subject_value := coalesce(row_data ->> 'name', 'a CTA/event');
+    title_value := case when tg_op = 'INSERT' then 'CTA/event added' when tg_op = 'DELETE' then 'CTA/event removed' else 'CTA/event updated' end;
+    body_value := subject_value || case when tg_op = 'INSERT' then ' was added to the daily regear log.' when tg_op = 'DELETE' then ' was removed from the daily regear log.' else ' was updated in the daily regear log.' end;
   elsif tg_table_name = 'regear_requests' then
     type_value := 'regear';
     select character_name into subject_value from public.members where id = nullif(row_data ->> 'member_id', '')::uuid;
@@ -164,6 +169,14 @@ drop trigger if exists admin_notifications_requests_trigger on public.regear_req
 create trigger admin_notifications_requests_trigger
 after insert or update or delete on public.regear_requests
 for each row execute function public.record_admin_notification();
+
+do $$
+begin
+  if to_regclass('public.regear_events') is not null then
+    execute 'drop trigger if exists admin_notifications_events_trigger on public.regear_events';
+    execute 'create trigger admin_notifications_events_trigger after insert or update or delete on public.regear_events for each row execute function public.record_admin_notification()';
+  end if;
+end $$;
 
 drop trigger if exists admin_notifications_plans_trigger on public.regear_plans;
 create trigger admin_notifications_plans_trigger
