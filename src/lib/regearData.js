@@ -71,14 +71,19 @@ export function toUiPlan(row, requests = []) {
   }
 }
 
-export function toUiRequest(row, members = []) {
+export function toUiRequest(row, members = [], notifications = []) {
   const member = members.find((entry) => entry.id === row.member_id)
+  const activity = notifications
+    .filter((entry) => entry.entity_id === row.id)
+    .sort((first, second) => new Date(first.created_at).getTime() - new Date(second.created_at).getTime())
+    .map((entry) => ({ id: entry.id, action: entry.title || 'Regear updated', adminName: entry.actor_name || 'Unknown admin', at: entry.created_at }))
+  const createdActivity = activity.find((entry) => entry.action === 'New regear reported')
   return {
     id: row.id,
     memberId: row.member_id,
     memberName: member?.character_name || 'Unknown member',
     role: row.role,
-    reportedBy: row.reported_by_name || '',
+    reportedBy: row.reported_by_name || createdActivity?.adminName || '',
     diedAt: row.died_at || row.created_at,
     deathNote: row.death_note || '',
     chest: row.issue_chest || 'Unassigned',
@@ -91,6 +96,7 @@ export function toUiRequest(row, members = []) {
     silverCost: row.silver_cost || 0,
     regearedAt: row.regeared_at,
     regearedBy: row.regeared_by_name || '',
+    activity,
   }
 }
 
@@ -105,11 +111,12 @@ export async function loadWorkspace() {
   if (guildError) throw guildError
   if (!guild) throw new Error('Coup De Grace was not found or this account is not linked as an admin yet.')
 
-  const [membersResult, itemsResult, requestsResult, plansResult] = await Promise.all([
+  const [membersResult, itemsResult, requestsResult, plansResult, notificationsResult] = await Promise.all([
     supabase.from('members').select('*').eq('guild_id', guild.id).eq('active', true).order('character_name'),
     supabase.from('items').select('*, chests(label)').eq('guild_id', guild.id).order('name'),
     supabase.from('regear_requests').select('*').eq('guild_id', guild.id).order('created_at', { ascending: false }),
     supabase.from('regear_plans').select('*').eq('guild_id', guild.id).order('starts_at'),
+    supabase.from('admin_notifications').select('id, type, title, actor_name, entity_id, created_at').eq('guild_id', guild.id).eq('type', 'regear').order('created_at', { ascending: true }),
   ])
   if (membersResult.error) throw membersResult.error
   if (itemsResult.error) throw itemsResult.error
@@ -121,7 +128,7 @@ export async function loadWorkspace() {
     members: membersResult.data.map((row) => toUiMember(row, requestsResult.data, guild.name)),
     items: itemsResult.data.map(toUiItem),
     plans: plansResult.data.map((row) => toUiPlan(row, requestsResult.data)),
-    requests: requestsResult.data.map((row) => toUiRequest(row, membersResult.data)),
+    requests: requestsResult.data.map((row) => toUiRequest(row, membersResult.data, notificationsResult.error ? [] : notificationsResult.data)),
   }
 }
 
@@ -220,6 +227,20 @@ export async function insertRegearRequest(guildId, request) {
     chest_id: await chestIdFor(guildId, request.chest),
     ...slots,
   }).select('*').single()
+  if (error) throw error
+  return data
+}
+
+export async function updateRegearRequest(guildId, requestId, request) {
+  const slots = itemSlots(request.items)
+  const { data, error } = await supabase.from('regear_requests').update({
+    role: request.role,
+    death_note: request.note,
+    issue_chest: request.chest || 'Unassigned',
+    died_at: request.diedAt,
+    chest_id: await chestIdFor(guildId, request.chest),
+    ...slots,
+  }).eq('id', requestId).eq('guild_id', guildId).eq('status', 'open').select('*').single()
   if (error) throw error
   return data
 }

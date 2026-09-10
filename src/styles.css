@@ -674,6 +674,20 @@ body { font-size: 13px; }
 .member-card-details-single { grid-template-columns: minmax(0, 1fr); }
 .regear-entry-meta { flex-wrap: wrap; }
 .daily-request-section-closed .regear-entry-meta .regear-completion { color: #8eb491; }
+.regear-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.regear-entry-actions .button { flex: 1 1 150px; }
+.regear-activity { margin-top: 12px; border-top: 1px solid var(--line); }
+.regear-activity summary { display: flex; align-items: center; gap: 7px; padding: 11px 0 7px; color: #a99687; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; list-style-position: inside; }
+.regear-activity summary strong { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 9px; color: var(--ember); background: #332319; font-size: 8px; font-weight: 500; }
+.regear-activity-list { display: grid; gap: 7px; padding: 3px 0 4px 17px; }
+.regear-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding-left: 9px; border-left: 1px solid #59402f; }
+.regear-activity-row span { color: #8f8074; font-size: 9px; }
+.regear-activity-row strong { color: #d9b391; font-size: 9px; font-weight: 600; }
+.regear-activity-row small { grid-column: 1 / -1; color: #6f645b; font-family: 'DM Mono', monospace; font-size: 8px; }
+.edit-regear-member { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding: 11px; border: 1px solid #4b382b; border-radius: 7px; background: #211a16; }
+.edit-regear-member div:last-child { display: grid; gap: 4px; }
+.edit-regear-member strong { color: #eadbcf; font-size: 12px; }
+.edit-regear-member span { color: #897a6e; font-size: 9px; }
 .admin-presence-widget { position: relative; display: flex; align-items: center; }
 .admin-presence-launcher { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; border: 1px solid transparent; border-radius: 6px; padding: 0 7px; color: #9e988f; background: transparent; font-family: 'DM Mono', monospace; font-size: 9px; white-space: nowrap; }
 .admin-presence-launcher:hover, .admin-presence-launcher[aria-expanded='true'] { border-color: #4f3d30; color: #e1d4c8; background: #211b17; }
