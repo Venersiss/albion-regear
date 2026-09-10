@@ -739,7 +739,7 @@ function DailyRequestSectionV2({ title, description, requests, emptyText, onMark
   const requestKey = requests.map((request) => request.id).join('|')
   useEffect(() => { setPage(1) }, [requestKey])
   useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
-  return <section className={`daily-request-section ${closed ? 'daily-request-section-closed' : 'daily-request-section-open'}`}><div className="daily-request-heading"><div><h3>{title}</h3><p>{description}</p></div><span>{requests.length} {requests.length === 1 ? 'record' : 'records'}</span></div><div className="regear-entry-list">{pageRequests.map((request) => <RegearEntryV2 key={request.id} request={request} onMark={onMark} onEdit={onEdit} onArchive={onArchive} onRestore={onRestore} />)}{!requests.length && <EmptyState text={emptyText} />}</div><Pagination page={safePage} pageSize={pageSize} total={requests.length} onPageChange={setPage} /></section>
+  return <section className={`daily-request-section ${closed ? 'daily-request-section-closed' : 'daily-request-section-open'}`}><div className="daily-request-heading"><div><h3>{title}</h3><p>{description}</p></div><span>{requests.length} {requests.length === 1 ? 'record' : 'records'}</span></div><div className="regear-entry-list">{pageRequests.map((request) => <RegearEntryV2 key={request.id} request={request} onMark={onMark} onEdit={onEdit} />)}{!requests.length && <EmptyState text={emptyText} />}</div><Pagination page={safePage} pageSize={pageSize} total={requests.length} onPageChange={setPage} /></section>
 }
 
 function RegearEventModalLegacy({ initialEvent, onClose, onSave }) {
