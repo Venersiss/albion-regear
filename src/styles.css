@@ -1355,3 +1355,5 @@ label, .auth-form label { font-size: 13px; }
 .cta-data-grid .cta-grid-row.dragging { opacity: .48; }
 .cta-data-grid .cta-grid-row.drag-over { outline: 2px solid var(--cta-row-color, #d47736); outline-offset: -2px; }
 .cta-grid-actions-help::after { content: '  ·  Drag any row to swap its position and number.'; color: #b08a70; }
+.cta-party-row-title { position: sticky; left: 0; z-index: 6; width: max-content; min-width: min(320px, calc(100vw - 32px)); min-height: 35px; padding: 0 10px; background: linear-gradient(90deg, #2e2119, #211a16); box-shadow: 8px 0 13px -12px rgba(0,0,0,.9); }
+.cta-party-row-title > span:first-child { white-space: nowrap; }
