@@ -59,6 +59,17 @@ export function CtaSheetsPage({ guild, session, onNotify }) {
   const admin = { id: session?.user?.id, username: session?.user?.user_metadata?.username, email: session?.user?.email }
   const refresh = async (focusId = '') => { if (!guild?.id) return; try { const next = await loadCtaWorkspace(guild.id); setWorkspace(next); setSelectedId((current) => focusId || current || next.sheets[0]?.id || ''); setError('') } catch (loadError) { setError(loadError.message || 'Could not load CTA sheets.') } }
   useEffect(() => { let mounted = true; setLoading(true); loadCtaWorkspace(guild?.id).then((next) => { if (mounted) { setWorkspace(next); setSelectedId(next.sheets[0]?.id || ''); setError('') } }).catch((loadError) => { if (mounted) setError(loadError.message || 'Could not load CTA sheets.') }).finally(() => { if (mounted) setLoading(false) }); return () => { mounted = false } }, [guild?.id])
+  useEffect(() => {
+    if (!guild?.id) return undefined
+    const interval = window.setInterval(() => {
+      loadCtaWorkspace(guild.id).then((next) => {
+        setWorkspace(next)
+        setSelectedId((current) => current || next.sheets[0]?.id || '')
+        setError('')
+      }).catch(() => {})
+    }, 10000)
+    return () => window.clearInterval(interval)
+  }, [guild?.id])
   const selected = workspace.sheets.find((sheet) => sheet.id === selectedId) || workspace.sheets[0]
   const selectedSlotSignature = selected?.parties.flatMap((party) => party.slots).map((slot) => `${slot.id}:${slot.slotNumber}`).join('|') || ''
   useEffect(() => {

@@ -50,7 +50,7 @@ function toUiSlot(row, signups = []) {
     potion: row.potion || '',
     notes: row.notes || '',
     sortOrder: row.sort_order || 0,
-    signup: signups.find((signup) => signup.slot_id === row.id) || null,
+    signup: signups.find((signup) => signup.slotId === row.id || signup.slot_id === row.id) || null,
   }
 }
 
