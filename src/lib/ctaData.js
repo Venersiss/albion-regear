@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 
-export const ctaClassifications = ['Tank', 'Support', 'Healer', 'DPS', 'Bomb', 'Caller']
+export const ctaClassifications = ['Tank', 'Support', 'Healer', 'DPS', 'Caller']
 export const ctaAttendanceStatuses = ['signed_up', 'present', 'late', 'absent', 'excused']
 
 function adminName(admin = {}) {

@@ -39,7 +39,7 @@ const initialItems = [
   { name: 'Soldier Boots', category: 'Boots', chest: 'C-04', stock: '23 / 24', percentage: 96, tone: 'good' },
 ]
 
-const roleOptions = ['Tank', 'Support', 'Healer', 'DPS', 'Bomb', 'Caller']
+const roleOptions = ['Tank', 'Support', 'Healer', 'DPS', 'Caller']
 
 function chestNumberFor(value) {
   const match = String(value || '').match(/\d+/)
@@ -61,6 +61,8 @@ const initialMembers = [
   { name: 'Rook', role: 'Bomb', guild: 'Coup De Grace', avatar: 'R', tone: 'teal', status: 'Open regear', chest: 'C-11', last: '3 days ago', issuedBy: 'Mirael', deathNote: 'Died on CTA · 3 days ago' },
 ]
 
+const safeInitialMembers = initialMembers.map((member) => member.role === 'Bomb' ? { ...member, role: 'DPS' } : member)
+
 const plans = [
   { title: 'Avalonian Roads — 13 Sep', subtitle: '20:00 UTC · 8 members', status: 'Upcoming', progress: '0 deaths reported', cost: '840k silver', date: '13 SEP', accent: 'ember' },
   { title: 'Crystal League — 11 Sep', subtitle: '21:30 UTC · 6 members', status: 'In progress', progress: '4 deaths · 3 closed', cost: '620k silver', date: '11 SEP', accent: 'blue' },
@@ -69,7 +71,7 @@ const plans = [
 
 function App() {
   const [active, setActive] = useState('Dashboard')
-  const [members, setMembers] = useState(initialMembers)
+  const [members, setMembers] = useState(safeInitialMembers)
   const [showMemberModal, setShowMemberModal] = useState(false)
   const [showPlanModal, setShowPlanModal] = useState(false)
   const [showDeathModal, setShowDeathModal] = useState(false)
