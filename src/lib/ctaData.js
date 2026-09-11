@@ -19,14 +19,15 @@ async function hashToken(token) {
 }
 
 function toUiSignup(row, memberNames = {}) {
+  const relatedMember = Array.isArray(row.member) ? row.member[0] : row.member
   return {
     id: row.id,
     sheetId: row.sheet_id,
     slotId: row.slot_id,
     memberId: row.member_id,
-    memberName: memberNames[row.member_id] || row.member_name || 'Unknown member',
+    memberName: relatedMember?.character_name || memberNames[String(row.member_id)] || memberNames[row.member_id] || row.member_name || 'Unknown member',
     editCodeHash: row.edit_code_hash,
-    attendanceStatus: row.attendance_status || 'signed_up',
+    attendanceStatus: ctaAttendanceStatuses.includes(row.attendance_status) ? row.attendance_status : 'signed_up',
     signedUpAt: row.signed_up_at,
     updatedAt: row.updated_at,
   }
@@ -94,7 +95,7 @@ export async function loadCtaWorkspace(guildId) {
     supabase.from('cta_sheets').select('*').eq('guild_id', guildId).neq('status', 'archived').order('starts_at', { ascending: false }),
     supabase.from('cta_parties').select('*').order('sort_order'),
     supabase.from('cta_slots').select('*').order('sort_order'),
-    supabase.from('cta_signups').select('*').order('signed_up_at'),
+    supabase.from('cta_signups').select('*, member:members(id, character_name)').order('signed_up_at'),
     supabase.from('members').select('id, character_name').eq('guild_id', guildId).eq('active', true).order('character_name'),
     supabase.from('cta_activity').select('*').eq('guild_id', guildId).order('created_at', { ascending: false }).limit(300),
     supabase.from('cta_templates').select('*').eq('guild_id', guildId).order('name'),
@@ -233,6 +234,17 @@ export async function deleteCtaSignup(guildId, sheetId, signupId, admin = {}) {
   const { error } = await supabase.from('cta_signups').delete().eq('id', signupId).eq('sheet_id', sheetId)
   if (error) throw error
   await logCtaActivity(guildId, sheetId, 'Signup removed by administrator', 'signup', signupId, {}, admin)
+}
+
+export async function clearCtaSignups(guildId, sheetId, admin = {}) {
+  const { data: signups, error: listError } = await supabase.from('cta_signups').select('id').eq('sheet_id', sheetId)
+  if (listError) throw listError
+  const count = signups?.length || 0
+  if (!count) return 0
+  const { error } = await supabase.from('cta_signups').delete().eq('sheet_id', sheetId)
+  if (error) throw error
+  await logCtaActivity(guildId, sheetId, 'All signups cleared by administrator', 'signup', null, { count }, admin)
+  return count
 }
 
 export async function loadPublicCtaSheet(token) {
