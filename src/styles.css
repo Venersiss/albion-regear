@@ -1330,6 +1330,8 @@ label, .auth-form label { font-size: 13px; }
 .cta-party-action-bar .text-button, .cta-party-action-bar .button { min-height: 36px; }
 .cta-party-action-bar .text-button { padding: 0 9px; }
 .cta-party-action-bar .table-add-button { min-height: 36px !important; padding: 0 10px !important; font-size: 12px !important; }
+.cta-party-action-bar .table-duplicate-button { min-height: 36px !important; padding: 0 10px !important; font-size: 12px !important; }
+.cta-row-duplicate-field select { text-overflow: ellipsis; }
 .cta-party-row-actions { display: none; }
 @media (max-width: 600px) { .cta-party-action-bar { align-items: stretch; }.cta-party-action-bar > label { flex-basis: 100%; }.cta-party-action-bar .text-button, .cta-party-action-bar .button { flex: 1; } }
 
@@ -1343,3 +1345,8 @@ label, .auth-form label { font-size: 13px; }
 .cta-data-grid .cta-grid-row .cta-grid-classification,
 .cta-data-grid .cta-grid-row .cta-grid-cell-select { border-color: var(--cta-row-color); color: var(--cta-row-color); }
 .cta-data-grid .cta-grid-row:hover { filter: brightness(1.12); }
+.cta-data-grid .cta-grid-row[draggable="true"] { cursor: grab; }
+.cta-data-grid .cta-grid-row[draggable="true"]:active { cursor: grabbing; }
+.cta-data-grid .cta-grid-row.dragging { opacity: .48; }
+.cta-data-grid .cta-grid-row.drag-over { outline: 2px solid var(--cta-row-color, #d47736); outline-offset: -2px; }
+.cta-grid-actions-help::after { content: '  ·  Drag any row to swap its position and number.'; color: #b08a70; }

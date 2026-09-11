@@ -195,6 +195,27 @@ export async function updateCtaSlot(guildId, sheetId, slotId, draft, admin = {})
   return data
 }
 
+export async function swapCtaSlots(guildId, sheetId, firstSlot, secondSlot, admin = {}) {
+  const firstUpdate = supabase.from('cta_slots').update({ slot_number: Number(secondSlot.slotNumber || 1), sort_order: Number(secondSlot.sortOrder || 0) }).eq('id', firstSlot.id).select('*').single()
+  const secondUpdate = supabase.from('cta_slots').update({ slot_number: Number(firstSlot.slotNumber || 1), sort_order: Number(firstSlot.sortOrder || 0) }).eq('id', secondSlot.id).select('*').single()
+  const [firstResult, secondResult] = await Promise.all([firstUpdate, secondUpdate])
+  if (firstResult.error) throw firstResult.error
+  if (secondResult.error) throw secondResult.error
+  await logCtaActivity(guildId, sheetId, 'Slots reordered', 'slot', firstSlot.id, { firstSlotId: firstSlot.id, secondSlotId: secondSlot.id, firstSlotNumber: firstSlot.slotNumber, secondSlotNumber: secondSlot.slotNumber }, admin)
+  return [firstResult.data, secondResult.data]
+}
+
+export async function duplicateCtaSlot(guildId, sheetId, sourceSlot, admin = {}) {
+  const { data: siblings, error: siblingError } = await supabase.from('cta_slots').select('slot_number, sort_order').eq('party_id', sourceSlot.partyId)
+  if (siblingError) throw siblingError
+  const nextSlotNumber = Math.max(0, ...(siblings || []).map((slot) => Number(slot.slot_number) || 0)) + 1
+  const nextSortOrder = Math.max(-1, ...(siblings || []).map((slot) => Number(slot.sort_order) || 0)) + 1
+  const { data, error } = await supabase.from('cta_slots').insert({ party_id: sourceSlot.partyId, slot_number: nextSlotNumber, classification: sourceSlot.classification || 'DPS', role_label: sourceSlot.roleLabel || sourceSlot.classification || 'DPS', weapon: sourceSlot.weapon || null, off_hand: sourceSlot.offHand || null, helmet: sourceSlot.helmet || null, armor: sourceSlot.armor || null, boots: sourceSlot.boots || null, cape: sourceSlot.cape || null, food: sourceSlot.food || null, potion: sourceSlot.potion || null, notes: sourceSlot.notes || null, sort_order: nextSortOrder }).select('*').single()
+  if (error) throw error
+  await logCtaActivity(guildId, sheetId, 'Slot duplicated', 'slot', data.id, { sourceSlotId: sourceSlot.id, sourceSlotNumber: sourceSlot.slotNumber, newSlotNumber: data.slot_number }, admin)
+  return data
+}
+
 export async function deleteCtaSlot(guildId, sheetId, slotId, admin = {}) {
   const { error } = await supabase.from('cta_slots').delete().eq('id', slotId)
   if (error) throw error

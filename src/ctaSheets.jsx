@@ -5,6 +5,7 @@ import {
   ctaAttendanceStatuses,
   ctaClassifications,
   createCtaSheet,
+  duplicateCtaSlot,
   deleteCtaParty,
   deleteCtaSignup,
   deleteCtaSlot,
@@ -13,6 +14,7 @@ import {
   regenerateCtaShareToken,
   saveCtaTemplate,
   submitPublicCtaAction,
+  swapCtaSlots,
   updateCtaParty,
   updateCtaSheet,
   updateCtaSignup,
@@ -57,6 +59,138 @@ export function CtaSheetsPage({ guild, session, onNotify }) {
   const refresh = async (focusId = '') => { if (!guild?.id) return; try { const next = await loadCtaWorkspace(guild.id); setWorkspace(next); setSelectedId((current) => focusId || current || next.sheets[0]?.id || ''); setError('') } catch (loadError) { setError(loadError.message || 'Could not load CTA sheets.') } }
   useEffect(() => { let mounted = true; setLoading(true); loadCtaWorkspace(guild?.id).then((next) => { if (mounted) { setWorkspace(next); setSelectedId(next.sheets[0]?.id || ''); setError('') } }).catch((loadError) => { if (mounted) setError(loadError.message || 'Could not load CTA sheets.') }).finally(() => { if (mounted) setLoading(false) }); return () => { mounted = false } }, [guild?.id])
   const selected = workspace.sheets.find((sheet) => sheet.id === selectedId) || workspace.sheets[0]
+  const selectedSlotSignature = selected?.parties.flatMap((party) => party.slots).map((slot) => `${slot.id}:${slot.slotNumber}`).join('|') || ''
+  useEffect(() => {
+    if (!selected?.id || !guild?.id || selected.status === 'locked' || typeof document === 'undefined') return undefined
+    const page = document.querySelector('.cta-workbook-page')
+    if (!page) return undefined
+    let draggedSlotId = ''
+    const clearDragState = () => {
+      draggedSlotId = ''
+      page.querySelectorAll('.cta-grid-row').forEach((row) => row.classList.remove('dragging', 'drag-over'))
+    }
+    const findSlot = (slotId) => selected.parties.flatMap((party) => party.slots).find((slot) => slot.id === slotId)
+    const findRowSlot = (targetRow) => {
+      let currentParty = null
+      for (const row of page.querySelectorAll('.cta-data-grid tbody tr')) {
+        if (row.classList.contains('cta-party-row')) {
+          const partyName = row.querySelector('strong')?.textContent?.trim()
+          currentParty = selected.parties.find((party) => party.name === partyName) || null
+          continue
+        }
+        if (row !== targetRow || !currentParty) continue
+        const slotNumber = row.querySelector('.sticky-col-1 button')?.textContent?.trim()
+        return currentParty.slots.find((slot) => String(slot.slotNumber) === slotNumber) || null
+      }
+      return null
+    }
+    const markRowsDraggable = () => page.querySelectorAll('.cta-grid-row').forEach((row) => { row.draggable = true })
+    const onDragStart = (event) => {
+      const row = event.target.closest?.('.cta-grid-row')
+      const slot = row && findRowSlot(row)
+      if (!slot) return
+      draggedSlotId = slot.id
+      row.classList.add('dragging')
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', slot.id)
+    }
+    const onDragOver = (event) => {
+      const row = event.target.closest?.('.cta-grid-row')
+      const targetSlot = row && findRowSlot(row)
+      const sourceSlot = findSlot(draggedSlotId)
+      if (!row || !targetSlot || !sourceSlot || sourceSlot.id === targetSlot.id || sourceSlot.partyId !== targetSlot.partyId) return
+      event.preventDefault()
+      page.querySelectorAll('.cta-grid-row.drag-over').forEach((candidate) => candidate.classList.remove('drag-over'))
+      row.classList.add('drag-over')
+    }
+    const onDrop = async (event) => {
+      const row = event.target.closest?.('.cta-grid-row')
+      const targetSlot = row && findRowSlot(row)
+      const sourceId = event.dataTransfer.getData('text/plain') || draggedSlotId
+      const sourceSlot = findSlot(sourceId)
+      if (!row || !targetSlot || !sourceSlot || sourceSlot.id === targetSlot.id || sourceSlot.partyId !== targetSlot.partyId) return clearDragState()
+      event.preventDefault()
+      try {
+        await swapCtaSlots(guild.id, selected.id, sourceSlot, targetSlot, admin)
+        await refresh(selected.id)
+        onNotify?.('Slots reordered')
+      } catch (error) {
+        onNotify?.(error.message || 'Could not reorder the slots.')
+      } finally {
+        clearDragState()
+      }
+    }
+    const onDragEnd = clearDragState
+    const observer = new MutationObserver(markRowsDraggable)
+    page.addEventListener('dragstart', onDragStart)
+    page.addEventListener('dragover', onDragOver)
+    page.addEventListener('drop', onDrop)
+    page.addEventListener('dragend', onDragEnd)
+    observer.observe(page, { childList: true, subtree: true })
+    markRowsDraggable()
+    return () => {
+      observer.disconnect()
+      page.querySelectorAll('.cta-grid-row').forEach((row) => { row.draggable = false })
+      page.removeEventListener('dragstart', onDragStart)
+      page.removeEventListener('dragover', onDragOver)
+      page.removeEventListener('drop', onDrop)
+      page.removeEventListener('dragend', onDragEnd)
+    }
+  }, [selected?.id, selected?.status, selectedSlotSignature, guild?.id, loading])
+  useEffect(() => {
+    if (!selected?.id || !guild?.id || selected.status === 'locked' || typeof document === 'undefined') return undefined
+    const toolbar = document.querySelector('.cta-workbook-page .cta-party-action-bar')
+    if (!toolbar) return undefined
+    const rows = selected.parties.flatMap((party) => party.slots.map((slot) => ({ party, slot })))
+    const rowField = document.createElement('label')
+    rowField.className = 'cta-row-duplicate-field'
+    rowField.append('Row')
+    const rowSelect = document.createElement('select')
+    rowSelect.setAttribute('aria-label', 'Choose row to duplicate')
+    const emptyOption = document.createElement('option')
+    emptyOption.value = ''
+    emptyOption.textContent = rows.length ? 'Choose row' : 'No rows available'
+    rowSelect.append(emptyOption)
+    rows.forEach(({ party, slot }) => {
+      const option = document.createElement('option')
+      option.value = slot.id
+      option.textContent = `${party.name} / Slot ${slot.slotNumber} / ${slot.roleLabel || slot.classification}`
+      rowSelect.append(option)
+    })
+    rowField.append(rowSelect)
+    const duplicateButton = document.createElement('button')
+    duplicateButton.type = 'button'
+    duplicateButton.className = 'button button-ghost table-duplicate-button'
+    duplicateButton.textContent = 'Duplicate row'
+    duplicateButton.disabled = true
+    duplicateButton.title = 'Copy the selected row into a new slot'
+    const onSelectionChange = () => { duplicateButton.disabled = !rowSelect.value }
+    const onDuplicate = async () => {
+      const selectedRow = rows.find(({ slot }) => slot.id === rowSelect.value)
+      if (!selectedRow) return
+      duplicateButton.disabled = true
+      duplicateButton.textContent = 'Duplicating...'
+      try {
+        await duplicateCtaSlot(guild.id, selected.id, selectedRow.slot, admin)
+        await refresh(selected.id)
+        onNotify?.('Row duplicated')
+      } catch (error) {
+        onNotify?.(error.message || 'Could not duplicate the row.')
+      } finally {
+        duplicateButton.textContent = 'Duplicate row'
+        duplicateButton.disabled = !rowSelect.value
+      }
+    }
+    rowSelect.addEventListener('change', onSelectionChange)
+    duplicateButton.addEventListener('click', onDuplicate)
+    toolbar.append(rowField, duplicateButton)
+    return () => {
+      rowSelect.removeEventListener('change', onSelectionChange)
+      duplicateButton.removeEventListener('click', onDuplicate)
+      rowField.remove()
+      duplicateButton.remove()
+    }
+  }, [selected?.id, selected?.status, selectedSlotSignature, guild?.id, loading])
   const run = async (operation, message, focusId = selected?.id) => { try { await operation(); await refresh(focusId); onNotify?.(message) } catch (actionError) { onNotify?.(actionError.message || 'Could not save CTA sheet changes.') } }
   const copyLayout = async (targetId, layout) => { for (const [partyIndex, party] of layout.entries()) { const targetParty = partyIndex === 0 ? targetId.party : await addCtaParty(guild.id, targetId.sheet.id, party.name, admin); for (const slot of party.slots || []) await addCtaSlot(guild.id, targetId.sheet.id, targetParty.id, slot, admin) } }
   const create = async (draft) => { try { const result = await createCtaSheet(guild.id, draft, admin); const source = draft.startMode === 'copy' ? workspace.sheets.find((sheet) => sheet.id === draft.sourceSheetId) : workspace.templates.find((template) => template.id === draft.templateId); const layout = draft.startMode === 'template' ? source?.template_data?.parties || [] : source?.parties || []; if (layout.length) await copyLayout(result, layout); setShareLinks((current) => ({ ...current, [result.sheet.id]: `${publicCtaOrigin}/cta/${result.shareToken}` })); setCreateOpen(false); await refresh(result.sheet.id); onNotify?.(`${draft.name} created`) } catch (actionError) { onNotify?.(actionError.message || 'Could not create the CTA sheet.') } }
