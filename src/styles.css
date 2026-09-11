@@ -1332,3 +1332,15 @@ label, .auth-form label { font-size: 13px; }
 .cta-party-action-bar .table-add-button { min-height: 36px !important; padding: 0 10px !important; font-size: 12px !important; }
 .cta-party-row-actions { display: none; }
 @media (max-width: 600px) { .cta-party-action-bar { align-items: stretch; }.cta-party-action-bar > label { flex-basis: 100%; }.cta-party-action-bar .text-button, .cta-party-action-bar .button { flex: 1; } }
+
+/* Match the workbook's pastel role fills while keeping the dark app readable. */
+.cta-data-grid .cta-grid-row-tank { --cta-row-color: #a4c2f4; background: rgba(164,194,244,.14); box-shadow: inset 4px 0 var(--cta-row-color); }
+.cta-data-grid .cta-grid-row-support { --cta-row-color: #b4a7d6; background: rgba(180,167,214,.14); box-shadow: inset 4px 0 var(--cta-row-color); }
+.cta-data-grid .cta-grid-row-healer { --cta-row-color: #b6d7a8; background: rgba(182,215,168,.14); box-shadow: inset 4px 0 var(--cta-row-color); }
+.cta-data-grid .cta-grid-row-dps { --cta-row-color: #ffe599; background: rgba(255,229,153,.12); box-shadow: inset 4px 0 var(--cta-row-color); }
+.cta-data-grid .cta-grid-row-bomb { --cta-row-color: #e06666; background: rgba(224,102,102,.14); box-shadow: inset 4px 0 var(--cta-row-color); }
+.cta-data-grid .cta-grid-row-caller { --cta-row-color: #d0e0e3; background: rgba(208,224,227,.14); box-shadow: inset 4px 0 var(--cta-row-color); }
+.cta-data-grid .cta-grid-row .sticky-col { background: color-mix(in srgb, var(--cta-row-color) 10%, #1a1714) !important; }
+.cta-data-grid .cta-grid-row .cta-grid-classification,
+.cta-data-grid .cta-grid-row .cta-grid-cell-select { border-color: var(--cta-row-color); color: var(--cta-row-color); }
+.cta-data-grid .cta-grid-row:hover { filter: brightness(1.12); }
