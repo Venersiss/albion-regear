@@ -1203,3 +1203,122 @@ small { font-size: 11px; }
   .notification-item-copy > span, .admin-chat-header p, .admin-chat-empty > span, .admin-chat-empty small { font-size: 12px; }
   .cta-data-grid { font-size: 12px; }
 }
+
+/* Extra readability increase requested by the guild team. */
+body { font-size: 15px; }
+small { font-size: 12px; }
+label, .auth-form label { font-size: 13px; }
+.brand-caption, .version { font-size: 11px; }
+.nav-label, .eyebrow { font-size: 13px; }
+.nav-item { font-size: 15px; }
+.nav-count { font-size: 12px; }
+.breadcrumbs { font-size: 13px; }
+.online { font-size: 11px; }
+.search input { font-size: 14px; }
+.search kbd { font-size: 11px; }
+.button { font-size: 13px; }
+.page-intro p { font-size: 15px; }
+.panel-heading h2 { font-size: 15px; }
+.panel-heading button, .panel-footer-link { font-size: 12px; }
+.stat-top { font-size: 13px; }
+.stat-detail { font-size: 12px; }
+.row-primary strong { font-size: 14px; }
+.row-primary span { font-size: 12px; }
+.item-summary { font-size: 13px; }
+.row-action { font-size: 11px; }
+.plan-date span, .plan-progress { font-size: 11px; }
+.status { font-size: 12px; }
+.filter-bar, .member-count { font-size: 13px; }
+.table-header { font-size: 12px; }
+.roster-row, .inventory-row { font-size: 13px; }
+.member-cell strong, .item-cell strong { font-size: 14px; }
+.member-cell span, .item-tier, .last-cell small { font-size: 12px; }
+.role-cell, .chest-cell, .last-cell { font-size: 13px; }
+.inventory-total p { font-size: 11px; }
+.health-cell span { font-size: 11px; }
+.settings-link { font-size: 13px; }
+.form-section p { font-size: 13px; }
+.form-section label, .form-grid label { font-size: 12px; }
+.form-section input, .form-section select, .form-grid input, .form-grid select { font-size: 14px; }
+.field-help, .member-card-footer > span, .pagination { font-size: 12px; }
+.pagination button { font-size: 12px; }
+.armory-category-tabs button { font-size: 12px; }
+.armory-category-tabs button span { font-size: 11px; }
+.weapon-library-heading p, .weapon-library-row span:not(.status) { font-size: 12px; }
+.weapon-library-row strong { font-size: 14px; }
+.member-card-footer .button { font-size: 12px; }
+.day-list-heading strong { font-size: 12px; }
+.day-button small { font-size: 11px; }
+.new-day-field { font-size: 12px; }
+.daily-detail-heading p { font-size: 12px; }
+.daily-filters label { font-size: 12px; }
+.daily-filters input, .daily-filters select { font-size: 14px; }
+.pending-heading, .pending-heading small, .invite-tabs button { font-size: 11px; }
+.pending-row strong { font-size: 13px; }
+.pending-copy small { font-size: 12px; }
+.regear-member h3 { font-size: 16px; }
+.regear-member span, .regear-entry-meta { font-size: 12px; }
+.regear-items span { font-size: 11px; }
+.regear-items strong { font-size: 13px; }
+.regear-activity summary { font-size: 12px; }
+.regear-activity summary strong { font-size: 11px; }
+.regear-activity-row span, .regear-activity-row strong, .regear-activity-row small { font-size: 11px; }
+.edit-regear-member strong { font-size: 14px; }
+.edit-regear-member span { font-size: 12px; }
+.notification-launcher, .chat-launcher, .admin-presence-launcher { font-size: 12px; }
+.notification-item-copy strong { font-size: 13px; }
+.notification-item-copy > span { font-size: 12px; }
+.notification-item-copy small, .notification-empty > span, .notification-empty small, .notification-inline-error { font-size: 11px; }
+.notification-popover-footer { font-size: 11px; }
+.admin-chat-header p, .admin-chat-empty > span, .admin-chat-empty small { font-size: 13px; }
+.admin-chat-day, .admin-chat-message-meta span, .admin-chat-composer > label, .admin-chat-composer-footer, .admin-chat-composer-footer small { font-size: 11px; }
+.admin-chat-message-meta strong { font-size: 12px; }
+.admin-chat-message-body p, .admin-chat-input-row textarea { font-size: 14px; }
+.admin-chat-empty strong { font-size: 25px; }
+.admin-chat-inline-error { font-size: 12px; }
+.admin-presence-launcher strong, .admin-presence-popover-summary button { font-size: 11px; }
+.admin-presence-popover-header p { font-size: 12px; }
+.admin-presence-popover-summary, .admin-presence-popover-footer { font-size: 11px; }
+.admin-history-summary strong { font-size: 15px; }
+.admin-history-summary span, .admin-history-audit, .admin-history-audit details small { font-size: 11px; }
+.global-search-heading p, .global-search-row-copy small, .global-search-static-row small, .global-search-footer { font-size: 11px; }
+.global-search-row-copy strong, .global-search-static-row strong { font-size: 13px; }
+.auth-card p, .auth-note, .auth-error, .public-entry, .public-admin-link { font-size: 13px; }
+.board-welcome p, .board-cta p { font-size: 12px; }
+.cta-meta span, .kit-item span { font-size: 11px; }
+.cta-meta strong, .kit-item strong { font-size: 13px; }
+
+/* CTA workbook data remains dense by design, but not tiny. */
+.cta-sheet-page-intro p, .cta-sheet-editor-top p { font-size: 14px; }
+.cta-workbook-title strong { font-size: 12px; }
+.cta-sheet-tab > span { font-size: 13px; }
+.cta-sheet-tab small, .cta-sheet-status-pill { font-size: 11px; }
+.cta-sheet-command-status { font-size: 12px; }
+.cta-share-line > span { font-size: 11px; }
+.cta-share-line code { font-size: 12px; }
+.cta-grid-actions-help { font-size: 11px; }
+.cta-data-grid { font-size: 13px; }
+.cta-data-grid thead th { font-size: 11px; }
+.cta-party-row strong { font-size: 13px; }
+.cta-party-row small { font-size: 11px; }
+.cta-grid-cell-button, .cta-grid-cell-input, .cta-grid-cell-select { font-size: 13px; }
+.cta-grid-member strong, .cta-grid-role-value { font-size: 13px; }
+.cta-grid-empty-value, .cta-grid-dash { font-size: 12px; }
+.cta-grid-classification, .cta-public-attendance { font-size: 11px; }
+.cta-grid-read-value { font-size: 12px; }
+.cta-activity-panel summary > small, .cta-activity-item span, .cta-activity-item time { font-size: 11px; }
+.cta-activity-item strong { font-size: 12px; }
+.cta-sheet-guide p, .cta-wizard-lede, .cta-start-options small, .cta-start-options em { font-size: 13px; }
+.cta-start-options strong, .cta-review-card strong { font-size: 14px; }
+.cta-review-card span, .cta-wizard-steps span { font-size: 11px; }
+.public-cta-hero p { font-size: 13px; }
+.public-cta-toolbar label input, .public-cta-toolbar select, .public-cta-tabs button { font-size: 12px; }
+.public-cta-tabs button span, .public-cta-footer { font-size: 11px; }
+.cta-modal-intro, .public-member-picker button strong { font-size: 13px; }
+
+@media (max-width: 600px) {
+  .page-intro p, .dashboard-hero-copy > p, .dashboard-purpose p { font-size: 14px; }
+  .daily-filters input, .daily-filters select, .form-section input, .form-section select, .form-grid input, .form-grid select { font-size: 14px; }
+  .notification-item-copy > span, .admin-chat-header p, .admin-chat-empty > span, .admin-chat-empty small { font-size: 13px; }
+  .cta-data-grid { font-size: 13px; }
+}
