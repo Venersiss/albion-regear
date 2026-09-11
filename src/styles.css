@@ -1310,6 +1310,11 @@ label, .auth-form label { font-size: 13px; }
 .cta-activity-item strong { font-size: 12px; }
 .cta-sheet-guide p, .cta-wizard-lede, .cta-start-options small, .cta-start-options em { font-size: 13px; }
 .cta-start-options strong, .cta-review-card strong { font-size: 14px; }
+.cta-activity-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(255,255,255,.07); padding: 8px 12px 10px; color: #8a776b; font-family: 'DM Mono', monospace; font-size: 11px; }
+.cta-activity-pagination button { min-height: 30px; border: 1px solid #59402f; border-radius: 4px; padding: 0 9px; color: #cfa47f; background: #211a16; font: inherit; cursor: pointer; }
+.cta-activity-pagination button:hover:not(:disabled) { border-color: #a36b45; color: #efbc91; background: #2d1f17; }
+.cta-activity-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+.cta-activity-pagination span { white-space: nowrap; }
 .cta-review-card span, .cta-wizard-steps span { font-size: 11px; }
 .public-cta-hero p { font-size: 13px; }
 .public-cta-toolbar label input, .public-cta-toolbar select, .public-cta-tabs button { font-size: 12px; }
