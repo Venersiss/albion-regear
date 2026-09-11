@@ -1322,3 +1322,13 @@ label, .auth-form label { font-size: 13px; }
   .notification-item-copy > span, .admin-chat-header p, .admin-chat-empty > span, .admin-chat-empty small { font-size: 13px; }
   .cta-data-grid { font-size: 13px; }
 }
+
+/* Keep party management at the grid entrance instead of at the far-right edge. */
+.cta-party-action-bar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; padding: 10px 11px; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 7px 7px 0 0; background: #1b1714; }
+.cta-party-action-bar > label { display: grid; flex: 1 1 190px; gap: 5px; min-width: 170px; color: #a18c7d; font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; }
+.cta-party-action-bar select { width: 100%; min-height: 36px; border: 1px solid #59402f; border-radius: 5px; outline: 0; padding: 0 9px; color: #ddcabc; background: #211a16; font: inherit; font-size: 13px; text-transform: none; }
+.cta-party-action-bar .text-button, .cta-party-action-bar .button { min-height: 36px; }
+.cta-party-action-bar .text-button { padding: 0 9px; }
+.cta-party-action-bar .table-add-button { min-height: 36px !important; padding: 0 10px !important; font-size: 12px !important; }
+.cta-party-row-actions { display: none; }
+@media (max-width: 600px) { .cta-party-action-bar { align-items: stretch; }.cta-party-action-bar > label { flex-basis: 100%; }.cta-party-action-bar .text-button, .cta-party-action-bar .button { flex: 1; } }
