@@ -1,0 +1,53 @@
+Patched Loot Logger v1.3.14
+===========================
+
+App location:
+  C:\Users\maria\LootLogger-patched
+
+Normal launcher:
+  run-loot-logger-patched.cmd
+
+Debug launcher:
+  run-loot-logger-patched-debug.cmd
+
+Changes made
+------------
+1. Updated stale Albion event IDs:
+   - EvOtherGrabbedLoot: 279 -> 278
+   - EvDeathEvent (EvDied): 165 -> 164
+   - EvCharacterStats: 143 -> 142
+   - EvNewLootChest: 300 -> 392
+   - EvUpdateLootChest: 301 -> 393
+
+2. Changed the loot case label from case275 to case278.
+
+3. Added a fallback when an item ID is missing from the item database.
+   Unknown items are logged as unknown_<id> instead of dropping the event.
+
+4. Enabled error logging in DataHandler. Parser warnings appear in debug mode.
+
+5. Added LOOT_LOGGER_DEBUG=1 support. The debug launcher sets it so
+   debug-logs.txt receives detailed event logs.
+
+How to run
+----------
+Double-click run-loot-logger-patched.cmd.
+
+If packet capture fails, run it as Administrator.
+Npcap must be installed with WinPcap API-compatible mode.
+
+Expected files
+--------------
+loot-events-<timestamp>.txt
+killfeed-events-<timestamp>.txt
+debug-logs.txt (debug mode only)
+
+Notes
+-----
+- EvOtherGrabbedLoot primarily logs loot grabbed by OTHER players.
+  Your own loot uses the separate self-loot path.
+- A loot file is only created when the first loot event is written.
+- If loot still does not appear, run the debug launcher and check
+  debug-logs.txt for event IDs and parser errors.
+- Albion can shift event IDs again after a game update. If loot stops
+  after a patch, the event map needs to be updated again.

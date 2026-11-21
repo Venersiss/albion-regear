@@ -903,6 +903,9 @@ label { font-size: 12px; }
 .admin-history-audit details { flex: 0 0 auto; }
 .admin-history-audit summary { color: #b7835f; cursor: pointer; }
 .admin-history-audit details small { display: block; margin-top: 6px; color: #897a70; text-align: right; }
+.admin-history-actions { display: grid; gap: 12px; margin-top: 12px; }
+.admin-history-actions .admin-history-audit { margin-top: 0; }
+.admin-history-mark-button { justify-self: start; min-height: 38px; padding-inline: 13px; }
 .global-search-backdrop { position: fixed; z-index: 44; inset: 0; border: 0; background: rgba(0,0,0,.22); }
 .global-search-popover { position: fixed; z-index: 45; top: 70px; right: 28px; width: min(540px, calc(100vw - 28px)); max-height: min(720px, calc(100vh - 88px)); overflow-y: auto; border: 1px solid #59402f; border-radius: 10px; background: linear-gradient(160deg,#2a201b,#171513 38%,#141312); box-shadow: 0 22px 70px rgba(0,0,0,.5); animation: notification-popover-in .18s ease both; }
 .global-search-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 19px 15px; border-bottom: 1px solid rgba(255,255,255,.09); }
@@ -1310,6 +1313,11 @@ label, .auth-form label { font-size: 13px; }
 .cta-activity-item strong { font-size: 12px; }
 .cta-sheet-guide p, .cta-wizard-lede, .cta-start-options small, .cta-start-options em { font-size: 13px; }
 .cta-start-options strong, .cta-review-card strong { font-size: 14px; }
+.cta-activity-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(255,255,255,.07); padding: 8px 12px 10px; color: #8a776b; font-family: 'DM Mono', monospace; font-size: 11px; }
+.cta-activity-pagination button { min-height: 30px; border: 1px solid #59402f; border-radius: 4px; padding: 0 9px; color: #cfa47f; background: #211a16; font: inherit; cursor: pointer; }
+.cta-activity-pagination button:hover:not(:disabled) { border-color: #a36b45; color: #efbc91; background: #2d1f17; }
+.cta-activity-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+.cta-activity-pagination span { white-space: nowrap; }
 .cta-review-card span, .cta-wizard-steps span { font-size: 11px; }
 .public-cta-hero p { font-size: 13px; }
 .public-cta-toolbar label input, .public-cta-toolbar select, .public-cta-tabs button { font-size: 12px; }
@@ -1350,3 +1358,45 @@ label, .auth-form label { font-size: 13px; }
 .cta-data-grid .cta-grid-row.dragging { opacity: .48; }
 .cta-data-grid .cta-grid-row.drag-over { outline: 2px solid var(--cta-row-color, #d47736); outline-offset: -2px; }
 .cta-grid-actions-help::after { content: '  ·  Drag any row to swap its position and number.'; color: #b08a70; }
+.cta-party-row-title { position: sticky; left: 0; z-index: 6; width: max-content; min-width: min(320px, calc(100vw - 32px)); min-height: 35px; padding: 0 10px; background: linear-gradient(90deg, #2e2119, #211a16); box-shadow: 8px 0 13px -12px rgba(0,0,0,.9); }
+.cta-party-row-title > span:first-child { white-space: nowrap; }
+
+/* Loot Logger page */
+.loot-standalone { padding: 32px 16px 64px; }
+.loot-page { max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; color: var(--text); }
+.loot-header h1 { margin: 4px 0 8px; font-size: 30px; }
+.loot-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+.loot-panel h2 { margin: 0 0 8px; font-size: 18px; }
+.loot-muted { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 6px 0; }
+.loot-muted a, .loot-panel a:not(.button) { color: var(--ember); }
+.loot-steps { list-style: none; counter-reset: step; margin: 16px 0; padding: 0; display: grid; gap: 12px; }
+.loot-steps li { counter-increment: step; display: flex; gap: 14px; align-items: center; justify-content: space-between; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px 14px 52px; position: relative; }
+.loot-steps li::before { content: counter(step); position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border-radius: 50%; background: var(--ember-soft); color: var(--ember); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.loot-steps p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.loot-steps .button { white-space: nowrap; text-decoration: none; }
+.loot-panel code { background: var(--surface-3); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+.loot-drop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px; text-align: center; margin-top: 12px; display: grid; gap: 10px; justify-items: center; }
+.loot-drop.dragging { border-color: var(--ember); background: var(--ember-soft); }
+.loot-note { background: var(--ember-soft); border: 1px solid var(--ember); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.loot-files { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.loot-file { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.loot-file.active { border-color: var(--ember); }
+.loot-file button { background: none; border: 0; color: var(--text); padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; }
+.loot-file small { color: var(--muted); margin-left: 4px; }
+.loot-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0; }
+.loot-stat { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.loot-stat span { color: var(--muted); font-size: 12px; }
+.loot-stat strong { font-size: 20px; }
+.loot-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.loot-toolbar input { flex: 1; min-width: 200px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--text); font: inherit; }
+.loot-tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.loot-tabs button { background: var(--surface-2); border: 0; color: var(--muted); padding: 7px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+.loot-tabs button.active { background: var(--ember-soft); color: var(--ember); }
+.loot-table-wrap { overflow: auto; max-height: 560px; border: 1px solid var(--line); border-radius: 8px; }
+.loot-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.loot-table th, .loot-table td { padding: 7px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.loot-table th { position: sticky; top: 0; background: var(--surface-3); cursor: pointer; text-transform: capitalize; }
+.loot-pager { display: flex; gap: 12px; align-items: center; justify-content: center; margin: 12px 0; font-size: 13px; }
+.loot-pager button { background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 6px 12px; cursor: pointer; }
+.loot-pager button:disabled { opacity: .4; cursor: default; }
+@media (max-width: 700px) { .loot-steps li { flex-direction: column; align-items: flex-start; } }

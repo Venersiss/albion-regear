@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AO Loot Logger Viewer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <div>
+        <h1>AO Loot Logger Viewer</h1>
+        <p class="subtitle">Local-only log viewer</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <label class="toggle">
+        <input type="checkbox" id="autoRefresh" />
+        <span>Auto-refresh</span>
+      </label>
+      <select id="refreshInterval" aria-label="Refresh interval">
+        <option value="3000">3s</option>
+        <option value="5000" selected>5s</option>
+        <option value="10000">10s</option>
+        <option value="30000">30s</option>
+      </select>
+      <button id="refreshListBtn" class="btn btn-secondary" title="Refresh file list">⟳</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <h2>Log files</h2>
+        <span id="fileCount" class="pill">0</span>
+      </div>
+      <div id="fileList" class="file-list">
+        <p class="muted">Loading files…</p>
+      </div>
+      <div class="sidebar-foot">
+        <div id="directoryLabel" class="directory"></div>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div id="emptyState" class="empty-state">
+        <div class="empty-icon">▤</div>
+        <h2>Select a log file</h2>
+        <p>Choose a loot or killfeed log from the list on the left.</p>
+      </div>
+
+      <div id="viewer" class="viewer hidden">
+        <div class="viewer-head">
+          <div>
+            <h2 id="fileName">—</h2>
+            <p id="fileMeta" class="muted">—</p>
+          </div>
+          <div class="viewer-actions">
+            <button id="reloadBtn" class="btn btn-secondary">Reload</button>
+            <button id="downloadBtn" class="btn btn-secondary">Download</button>
+            <button id="backBtn" class="btn btn-ghost">← Files</button>
+          </div>
+        </div>
+
+        <div id="summary" class="summary"></div>
+
+        <div class="toolbar">
+          <input
+            id="searchInput"
+            class="search"
+            type="text"
+            placeholder="Search all columns…"
+            aria-label="Search rows"
+          />
+          <label class="view-toggle">
+            <input type="radio" name="viewMode" value="table" checked />
+            <span>Table</span>
+          </label>
+          <label class="view-toggle">
+            <input type="radio" name="viewMode" value="raw" />
+            <span>Raw</span>
+          </label>
+        </div>
+
+        <div id="typeNotice" class="type-notice hidden"></div>
+
+        <div id="tableWrap" class="table-wrap">
+          <table id="dataTable">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+          <div id="noResults" class="no-results hidden">No matching rows.</div>
+        </div>
+
+        <pre id="rawView" class="raw-view hidden"></pre>
+
+        <div class="statusbar">
+          <span id="rowCount">0 rows</span>
+          <span id="lastUpdated"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="parser.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
