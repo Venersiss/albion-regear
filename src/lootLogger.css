@@ -196,12 +196,13 @@
 .ll-looters-wrap { display: grid; gap: 14px; }
 .ll-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 12.5px; color: #cbbfb2; }
 .ll-legend-item { display: inline-flex; align-items: center; gap: 7px; cursor: help; }
-.ll-legend-item i { width: 14px; height: 14px; border-radius: 4px; border: 2px solid var(--st); background: var(--st-bg); }
+.ll-legend-item i { width: 16px; height: 16px; border-radius: 4px; background: var(--st-fill); box-shadow: inset 0 0 0 1px var(--st-edge); }
 .ll-legend-item b { font: 500 12px var(--ll-mono); color: var(--ll-ink); }
 .ll-legend-tip { color: var(--ll-muted); font-style: italic; }
-.st-normal { --st: #6b6056; --st-bg: rgba(255, 255, 255, .03); }
-.st-guild { --st: #7fb0d6; --st-bg: rgba(124, 155, 179, .16); }
-.st-died { --st: #e5604f; --st-bg: rgba(229, 96, 79, .16); }
+/* Outcome colours are filled behind the icon at partial opacity so the item stays readable. */
+.st-normal { --st: #8a7d70; --st-fill: rgba(233, 224, 213, .08); --st-edge: rgba(233, 224, 213, .14); }
+.st-guild { --st: #7fb0d6; --st-fill: rgba(92, 160, 214, .45); --st-edge: rgba(127, 176, 214, .55); }
+.st-died { --st: #e5604f; --st-fill: rgba(222, 74, 58, .5); --st-edge: rgba(229, 96, 79, .6); }
 
 .ll-looters { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .ll-looter { display: grid; grid-template-columns: minmax(170px, 220px) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border: 1px solid var(--ll-line); border-radius: 12px; background: var(--ll-panel); }
@@ -214,10 +215,10 @@
 .ll-looter-flag { justify-self: start; padding: 3px 8px; border-radius: 999px; background: rgba(229, 96, 79, .16); color: #ffb8ad; font-size: 11.5px; font-weight: 700; }
 
 .ll-loot-grid { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.ll-loot-tile { position: relative; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 10px; border: 2px solid var(--st); background: var(--st-bg); cursor: help; }
+.ll-loot-tile { position: relative; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 10px; background: var(--st-fill); box-shadow: inset 0 0 0 1px var(--st-edge); cursor: help; }
 .ll-loot-tile .ll-icon { background: transparent; }
 .ll-loot-tile b { position: absolute; right: -6px; bottom: -6px; min-width: 20px; padding: 1px 5px; border-radius: 999px; background: #0f0d0b; border: 1px solid var(--st); color: var(--ll-ink); font: 500 11px var(--ll-mono); text-align: center; }
-.ll-loot-tile.st-died .ll-icon { filter: grayscale(.55) brightness(.8); }
+
 
 @media (max-width: 640px) {
   .ll-looter { grid-template-columns: minmax(0, 1fr); gap: 10px; }
