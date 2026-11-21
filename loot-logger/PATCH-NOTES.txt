@@ -62,3 +62,17 @@ v13.4.0 (source now in this repo)
   outdated event IDs).
 - Added ao-loot-logger-debug.cmd (LOOT_LOGGER_DEBUG=1 -> debug-logs.txt).
 - Killfeed logging is not included in this source.
+
+v1.3.15 (Coup De Grace build, replaces the earlier reconstruction)
+------------------------------------------------------------------
+- Base is the working LootLogger v1.3.14 fork (Protocol18, killfeed, market and
+  might loggers). The earlier source in this repo was an older upstream version
+  that cannot parse the current game protocol.
+- Event IDs updated: loot 278, character stats 142, loot chests 392/393.
+  Killfeed stays on 165.
+- Unknown items are logged as unknown_<id> instead of dropping the event.
+- If an unmapped event (ID 250-320) has exactly the shape of a loot event it is
+  logged as loot, so an Albion renumbering cannot silently stop logging.
+- LOOT_LOGGER_DEBUG=1 writes debug-logs.txt and unknown-events.txt.
+- Item download has a 10s timeout; the "new version" prompt is off by default.
+- Launchers elevate to administrator and check for Npcap.
