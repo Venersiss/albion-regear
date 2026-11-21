@@ -1,0 +1,19 @@
+AO Loot Logger (Coup De Grace build, v13.4.0)
+==============================================
+
+1. Install Npcap first: https://npcap.com/#download
+   Tick "Install Npcap in WinPcap API-compatible Mode".
+2. Right-click ao-loot-logger.cmd and choose "Run as administrator".
+3. Start Albion Online. The window should say ALBION DETECTED.
+4. Play. Logs are saved in the folder you ran it from:
+     loot-events-<timestamp>.txt
+   (a file is only created when the first loot event is logged)
+5. Upload that file at https://albion-regear.vercel.app/loot
+
+Press "d" in the window to start a new log file, "r" to restart network capture.
+
+Nothing logged?
+- Run as administrator and confirm Npcap is installed in WinPcap-compatible mode.
+- This logger shows loot picked up by OTHER players near you.
+- Run ao-loot-logger-debug.cmd, play for a minute, and send debug-logs.txt to an admin.
+  After a game update, Albion can change its event IDs and the logger needs updating.

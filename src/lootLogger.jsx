@@ -55,10 +55,37 @@ function Ledger({ items }) {
   return <dl className="ll-ledger">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><span className="ll-leader" aria-hidden="true" /><dd>{typeof value === 'number' ? fmt.format(value) : value}</dd></div>)}</dl>
 }
 
+// Item icons come from Albion's official render server. Only the item ID is requested.
+const iconUrl = (itemId, size) => `https://render.albiononline.com/v1/item/${encodeURIComponent(itemId)}.png?size=${size}`
+
+function ItemIcon({ itemId, name = '', size = 32 }) {
+  const [failed, setFailed] = useState(false)
+  if (failed || !itemId || itemId.startsWith('unknown_')) return <span className="ll-icon ll-icon-empty" style={{ width: size, height: size }} aria-hidden="true" />
+  return <img className="ll-icon" src={iconUrl(itemId, size * 2)} width={size} height={size} alt={name} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+}
+
+function TopItems({ rows }) {
+  const top = useMemo(() => {
+    const totals = new Map()
+    for (const { record } of rows) {
+      if (!record.item_id) continue
+      const entry = totals.get(record.item_id) || { id: record.item_id, name: record.item_name || record.item_id, qty: 0 }
+      entry.qty += Number(String(record.quantity).replace(/,/g, '')) || 0
+      totals.set(record.item_id, entry)
+    }
+    return [...totals.values()].sort((a, b) => b.qty - a.qty).slice(0, 8)
+  }, [rows])
+  if (!top.length) return null
+  return <div className="ll-top">
+    <h3>Most looted</h3>
+    <ul>{top.map((item) => <li key={item.id} title={`${item.name} (${item.id})`}><ItemIcon itemId={item.id} name={item.name} size={56} /><b>{fmt.format(item.qty)}</b><span>{item.name}</span></li>)}</ul>
+  </div>
+}
+
 function Cell({ column, value }) {
   if (column === 'item_id' && value) {
     const tier = tierOf(value)
-    return <span className="ll-item"><span className="ll-chip" style={{ '--tier': tier.color }}>{tier.label}</span>{value}</span>
+    return <span className="ll-item"><ItemIcon itemId={value} size={32} /><span className="ll-chip" style={{ '--tier': tier.color }}>{tier.label}</span>{value}</span>
   }
   return value
 }
@@ -103,6 +130,7 @@ function LogView({ file }) {
       <Ledger items={ledger} />
       {summary.type === 'loot' && <TierStrip rows={parsed.rows} />}
     </div>
+    {summary.type === 'loot' && <TopItems rows={parsed.rows} />}
     {parsed.type === 'generic' && <p className="ll-note">This file doesn't match a loot or killfeed header, so raw columns are shown.</p>}
     <div className="ll-toolbar">
       <label className="ll-search"><span className="ll-sr">Search log</span><input type="search" placeholder="Search player, item or guild" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }} /></label>
@@ -149,7 +177,7 @@ export function LootLoggerPage({ standalone = false }) {
         <div className="ll-hero-copy">
           <p className="ll-eyebrow">Guild loot logs</p>
           <h1><span>Loot</span><span>Ledger</span></h1>
-          <p className="ll-lede">Drop in your logger files to see who picked up what. Files are read in your browser and never uploaded.</p>
+          <p className="ll-lede">Drop in your logger files to see who picked up what. Your files are read in your browser and never uploaded. Item icons load from Albion's own image server.</p>
           <div className="ll-actions">
             <a className="ll-btn ll-btn-primary" href={LOOT_LOGGER_RELEASES_URL} target="_blank" rel="noopener noreferrer">Get Loot Logger</a>
             <a className="ll-btn" href={NPCAP_URL} target="_blank" rel="noopener noreferrer">Get Npcap</a>

@@ -3,6 +3,11 @@ const util = require('util')
 
 const isProd = require('./is-prod')
 
+// LOOT_LOGGER_DEBUG=1 writes detailed event logs to debug-logs.txt.
+function isDebug() {
+  return process.env.LOOT_LOGGER_DEBUG === '1'
+}
+
 const { combine, timestamp, printf, errors } = winston.format
 
 const logger = winston.createLogger({
@@ -26,7 +31,7 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.File({
-      level: isProd() ? 'error' : 'debug',
+      level: isDebug() ? 'debug' : isProd() ? 'error' : 'debug',
       maxFiles: 2,
       maxsize: 1024 * 1024 * 5, // 10mb
       tailable: true,
@@ -36,7 +41,7 @@ const logger = winston.createLogger({
       handleRejections: true
     }),
     new winston.transports.Console({
-      level: isProd() ? 'error' : 'silly',
+      level: isDebug() ? 'debug' : isProd() ? 'error' : 'silly',
       handleExceptions: true,
       handleRejections: true
     })

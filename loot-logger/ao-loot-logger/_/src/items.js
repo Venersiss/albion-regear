@@ -37,8 +37,16 @@ class Items {
     }
   }
 
+  // Never returns undefined: items missing from the item database are logged as
+  // unknown_<id> instead of silently dropping the loot event.
   get(itemNumId) {
-    return this.items[itemNumId]
+    return (
+      this.items[itemNumId] ?? {
+        itemNumId,
+        itemId: `unknown_${itemNumId}`,
+        itemName: `unknown_${itemNumId}`
+      }
+    )
   }
 }
 

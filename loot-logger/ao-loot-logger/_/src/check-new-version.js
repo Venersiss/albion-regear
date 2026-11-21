@@ -4,7 +4,9 @@ const Logger = require('./utils/logger')
 const isProd = require('./utils/is-prod')
 
 async function checkNewVersion() {
-  if (!isProd()) {
+  // This is a patched fork: upstream releases still use outdated Albion event IDs,
+  // so never nag people to "update" to a build that would stop logging loot.
+  if (true || !isProd()) {
     return
   }
 
