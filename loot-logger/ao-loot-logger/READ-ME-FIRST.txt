@@ -1,19 +1,23 @@
-AO Loot Logger (Coup De Grace build, v13.4.0)
-==============================================
+AO Loot Logger - Coup De Grace build (v1.3.15)
+================================================
+
+Logs loot and killfeed while you play Albion Online (Windows only).
 
 1. Install Npcap first: https://npcap.com/#download
    Tick "Install Npcap in WinPcap API-compatible Mode".
-2. Right-click ao-loot-logger.cmd and choose "Run as administrator".
+2. Extract this whole folder anywhere, then double-click "Start Loot Logger.cmd".
+   It asks for administrator permission by itself.
 3. Start Albion Online. The window should say ALBION DETECTED.
-4. Play. Logs are saved in the folder you ran it from:
-     loot-events-<timestamp>.txt
-   (a file is only created when the first loot event is logged)
-5. Upload that file at https://albion-regear.vercel.app/loot
+4. Play. Files appear in this folder:
+     loot-events-<time>.txt      loot picked up by other players near you
+     killfeed-events-<time>.txt  deaths
+   A file is only created when the first event is logged.
+5. Upload the file at https://albion-regear.vercel.app/loot
 
-Press "d" in the window to start a new log file, "r" to restart network capture.
+Keys in the window:  d = start a new log file,  r = restart network capture.
 
 Nothing logged?
-- Run as administrator and confirm Npcap is installed in WinPcap-compatible mode.
-- This logger shows loot picked up by OTHER players near you.
-- Run ao-loot-logger-debug.cmd, play for a minute, and send debug-logs.txt to an admin.
-  After a game update, Albion can change its event IDs and the logger needs updating.
+- Make sure Npcap is installed (WinPcap-compatible mode) and Albion is running.
+- Run "Start Loot Logger (debug).cmd", play for a minute, then send debug-logs.txt
+  and unknown-events.txt to an admin. If Albion renumbered its events, the logger
+  prints "Loot event detected on ID ..." and keeps logging anyway.

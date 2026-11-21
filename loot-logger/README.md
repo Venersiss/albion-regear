@@ -1,6 +1,6 @@
 # AO Loot Logger (Coup De Grace)
 
-Logs loot and killfeed events in Albion Online by reading the game's network traffic, so the guild can review who looted what. Based on [matheussampaio/ao-loot-logger](https://github.com/matheussampaio/ao-loot-logger), patched for current Albion event IDs (see [PATCH-NOTES.txt](PATCH-NOTES.txt)).
+Logs loot and killfeed events in Albion Online by reading the game's network traffic, so the guild can review who looted what. It is a patched build of the community LootLogger fork (v1.3.x, Protocol18), with event IDs updated for the current game (see [PATCH-NOTES.txt](PATCH-NOTES.txt)).
 
 It does not modify or inject into the game. It only listens to network packets on your PC.
 
@@ -8,26 +8,28 @@ It does not modify or inject into the game. It only listens to network packets o
 
 1. **Install Npcap** from <https://npcap.com/#download>.
    During setup, tick **"Install Npcap in WinPcap API-compatible Mode"**.
-2. **Download the Loot Logger**: go to the [latest release](../../releases/latest), download `ao-loot-logger-win.zip` and extract it anywhere.
-3. **Run it as Administrator**: right-click the logger, choose *Run as administrator*, then start Albion Online.
-   The window should show **ALBION DETECTED**. If not, press the restart key shown in the window.
+2. **Download the Loot Logger**: go to the [latest release](../../releases/latest), download `ao-loot-logger-win.zip` and extract the whole folder anywhere.
+3. **Run `Start Loot Logger.cmd`**. It asks for administrator permission by itself and checks that Npcap is installed. Then start Albion Online.
+   The window should show **ALBION DETECTED**.
 4. **Play.** Log files are written next to the logger:
    - `loot-events-<timestamp>.txt`
    - `killfeed-events-<timestamp>.txt`
 5. **View them** on the guild dashboard Loot Logger page (no login needed): drop the `.txt` files in the upload box. Files are parsed in your browser and are not uploaded anywhere.
 
-## Notes
+## Troubleshooting
 
-- Loot logs show loot grabbed by *other* players near you; your own loot uses a separate path.
-- A loot file is only created when the first loot event happens.
-- If packet capture fails, run as Administrator and confirm Npcap is installed in WinPcap-compatible mode.
-- After an Albion update, event IDs can shift and loot may stop appearing. The event map in `ao-loot-logger/_/src/data-handler/` then needs updating.
+- A log file is only created when the first event happens.
+- Loot logs show loot grabbed by *other* players near you.
+- Nothing logged? Run `Start Loot Logger (debug).cmd`, play for a minute, and send `debug-logs.txt` and `unknown-events.txt` to an admin.
+- Albion sometimes renumbers its events after an update. If a loot event arrives on an unexpected ID, the logger prints `Loot event detected on ID ...` and logs it anyway.
 
 ## Repository layout
 
-- `ao-loot-logger/` - the packet logger (Node.js).
+- `ao-loot-logger/` - the logger (Node.js). `src/config.js` holds the event IDs.
 - `viewer/` - optional local-only viewer at `http://127.0.0.1:8765` (the dashboard page replaces this for most people).
 
 ## For maintainers
 
-The `.zip`/`.exe` files are git-ignored. Publish `ao-loot-logger-win.zip` as an asset on a GitHub Release so the dashboard's download button (`/releases/latest`) works. The `.cmd` launchers in this folder contain machine-specific paths (`C:\Users\maria\...`) and are only for the original author's PC.
+The release zip is `ao-loot-logger/` plus a `node_modules/` folder that includes the Windows `node.exe` and the compiled `cap` module. `node_modules`, `.zip` and `.exe` files are git-ignored, so build the zip from a folder that has them and attach it to a GitHub Release (the dashboard's download button points at `/releases/latest`).
+
+Network calls the logger makes: the item list from `raw.githubusercontent.com/ao-data/ao-bin-dumps`, and a time-sync lookup to `time.recckless.com`. The update check is off by default (`LOOT_LOGGER_CHECK_UPDATES=1` turns it on).
