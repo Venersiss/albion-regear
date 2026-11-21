@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/cta/:path*", "destination": "/index.html" }
+    { "source": "/cta/:path*", "destination": "/index.html" },
+    { "source": "/loot", "destination": "/index.html" }
   ]
 }

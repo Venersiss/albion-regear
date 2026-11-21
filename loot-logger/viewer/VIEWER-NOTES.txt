@@ -1,0 +1,49 @@
+AO Loot Logger Viewer (local only)
+==================================
+
+Start:
+  Double-click run-viewer.cmd, then open:
+      http://127.0.0.1:8765
+
+Stop:
+  Press Ctrl+C in the black window.
+
+About the upstream repo
+-----------------------
+  https://github.com/matheussampaio/ao-loot-logger
+
+  That repository is the PACKET LOGGER, not a web UI. It contains no
+  HTML/CSS/website. Its README points to a separate desktop "AO Loot
+  Logger Viewer" app. The log file format is defined in its
+  src/loot-logger.js, which is what this local viewer reads.
+
+  This viewer is a small, dependency-free website built around that same
+  semicolon-delimited format, with no external services or internet needed.
+
+What it does
+------------
+  - Lists all .txt files in the Loot Logger folder.
+  - Shows Loot, Killfeed, and Debug logs in a sortable/searchable table.
+  - Summary cards (rows, totals, top item/looter, etc.).
+  - "Raw" tab shows the untouched file text.
+  - Optional auto-refresh so you can watch a live log fill in.
+  - Download button to save the selected log.
+
+Privacy / security
+------------------
+  - Binds ONLY to 127.0.0.1 (loopback). Nobody else on the network can
+    reach it.
+  - No external libraries, no CDN, no telemetry, no internet access.
+  - File access is restricted to the Loot Logger folder; path traversal
+    and subdirectories are rejected.
+
+Compatibility
+-------------
+  - Upstream v13.x header:  timestamp_utc;looted_by__alliance;...
+  - Patched fork header:    date;utc_time;looted_by__alliance;...
+  - Killfeed header:        date;utc_time;killed_player__guild;...
+
+Optional settings (environment variables)
+------------------------------------------
+  LOOT_VIEWER_PORT      Change the port (default 8765).
+  LOOT_VIEWER_LOG_DIR   Change which folder is scanned for .txt files.

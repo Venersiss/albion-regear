@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Distributable binaries and packaged artifacts
+*.exe
+*.zip
+*.tar.gz
+*.msi
+*.deb
+*.rpm
+*.AppImage
+
+# Runtime logs and captured event data
+*.log
+debug-logs.txt
+killfeed-events-*.txt
+loot-events-*.txt
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
