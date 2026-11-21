@@ -51,3 +51,14 @@ Notes
   debug-logs.txt for event IDs and parser errors.
 - Albion can shift event IDs again after a game update. If loot stops
   after a patch, the event map needs to be updated again.
+
+v13.4.0 (source now in this repo)
+---------------------------------
+- The patches above are applied to ao-loot-logger/_/src, so the repo and the
+  release zip match the build that works.
+- Log files use the date;utc_time;...;case_id;logger_version header the
+  dashboard viewer reads. ";" and line breaks are stripped from names.
+- The upstream "new version available" prompt is disabled (upstream still ships
+  outdated event IDs).
+- Added ao-loot-logger-debug.cmd (LOOT_LOGGER_DEBUG=1 -> debug-logs.txt).
+- Killfeed logging is not included in this source.

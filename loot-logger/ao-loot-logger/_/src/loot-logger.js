@@ -1,5 +1,6 @@
 const fs = require('fs')
 
+const { version } = require('../package.json')
 const { red, green } = require('./utils/colors')
 const formatPlayerName = require('./utils/format-player-name')
 
@@ -19,7 +20,8 @@ class LootLogger {
     this.stream = fs.createWriteStream(this.logFileName, { flags: 'a' })
 
     const header = [
-      'timestamp_utc',
+      'date',
+      'utc_time',
       'looted_by__alliance',
       'looted_by__guild',
       'looted_by__name',
@@ -28,7 +30,9 @@ class LootLogger {
       'quantity',
       'looted_from__alliance',
       'looted_from__guild',
-      'looted_from__name'
+      'looted_from__name',
+      'case_id',
+      'logger_version'
     ].join(';')
 
     this.stream.write(header + '\n')
@@ -55,23 +59,36 @@ class LootLogger {
     this.logFileName = `loot-events-${datetime}.txt`
   }
 
-  write({ date, itemId, quantity, itemName, lootedBy, lootedFrom }) {
+  write({ date, itemId, quantity, itemName, lootedBy, lootedFrom, caseId = '' }) {
     if (this.stream == null) {
       this.init()
     }
 
+    const pad = (n) => String(n).padStart(2, '0')
+    const day = `${pad(date.getUTCDate())}-${pad(date.getUTCMonth() + 1)}-${date.getUTCFullYear()}`
+    const time = `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
+
+    // ";" separates columns and newlines separate rows, so strip them from
+    // free-text values. Otherwise one odd player name shifts every column.
+    const clean = (value) => String(value ?? '').replace(/[;\r\n]+/g, ' ').trim()
+
     const line = [
-      date.toISOString(),
-      lootedBy.allianceName ?? '',
-      lootedBy.guildName ?? '',
+      day,
+      time,
+      lootedBy.allianceName,
+      lootedBy.guildName,
       lootedBy.playerName,
       itemId,
       itemName,
       quantity,
-      lootedFrom.allianceName ?? '',
-      lootedFrom.guildName ?? '',
-      lootedFrom.playerName
-    ].join(';')
+      lootedFrom.allianceName,
+      lootedFrom.guildName,
+      lootedFrom.playerName,
+      caseId,
+      `${version}`
+    ]
+      .map(clean)
+      .join(';')
 
     this.stream.write(line + '\n')
 

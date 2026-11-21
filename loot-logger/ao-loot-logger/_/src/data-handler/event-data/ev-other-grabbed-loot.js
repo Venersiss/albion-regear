@@ -3,6 +3,7 @@ const LootLogger = require('../../loot-logger')
 const Items = require('../../items')
 const ParserError = require('../parser-error')
 const Logger = require('../../utils/logger')
+const Config = require('../../config')
 
 const name = 'EvOtherGrabbedLoot'
 
@@ -30,6 +31,7 @@ function handle(event) {
     itemId,
     quantity,
     itemName,
+    caseId: `case${Config.events.EvOtherGrabbedLoot}`,
     lootedBy:
       MemoryStorage.players.getByName(lootedBy) ??
       MemoryStorage.players.add({ playerName: lootedBy }),
