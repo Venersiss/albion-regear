@@ -5,6 +5,7 @@ import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
 import { createRegearEvent, deactivateMember, deleteItem as removeItem, deleteRegearDate, deleteRegearEvent, insertItem, insertMember, insertPlan, insertRegearRequest, listAdminInvites, loadWorkspace, markRequestRegeared, updateItem as persistItem, updateMemberChest as persistMemberChest, updateRegearEvent as persistRegearEvent, updateRegearRequest as persistRegearRequest } from './lib/regearData'
 import { CtaSheetsPage, PublicCtaSheet } from './ctaSheets'
 import { LootLoggerPage } from './lootLogger'
+import LoginScreen from './loginScreen'
 
 const icons = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -436,19 +437,8 @@ function SetPasswordGate({ email, onComplete }) {
 }
 
 function AuthGate({ onMemberView }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const signIn = async (event) => {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    if (signInError) setError(signInError.message)
-    setBusy(false)
-  }
-  return <div className="auth-shell login-shell"><div className="auth-card"><div className="auth-brand"><div className="brand-mark">A<span>R</span></div><div><strong>Albion <em>Regear</em></strong><small>COUP DE GRACE</small></div></div><span className="eyebrow">Administrator access</span><h1>Welcome back.</h1><p>Sign in with an invited administrator account to open the operations room.</p><form onSubmit={signIn} className="auth-form"><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@gmail.com" autoComplete="email" required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Your password" autoComplete="current-password" required /></label>{error && <div className="auth-error">{error}</div>}<button className="button button-primary auth-submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in to dashboard'}</button></form><section className="public-entry-card"><div className="public-entry-copy"><span className="public-entry-icon"><Icon name="eye" size={18} /></span><div><span className="eyebrow">For guild members</span><strong>Check your issue chest</strong><p>No account needed. Search your Albion name and see your assigned chest and regear status.</p></div></div><button type="button" className="public-entry-button" onClick={onMemberView}>Open member lookup <Icon name="arrow" size={15} /></button></section><section className="public-entry-card loot-entry-card"><div className="public-entry-copy"><span className="public-entry-icon"><Icon name="box" size={18} /></span><div><span className="eyebrow">For guild members</span><strong>Log your loot</strong><p>See who picked up what after a fight. Your files stay in your browser.</p></div></div><ol className="loot-entry-steps"><li>Install Npcap</li><li>Run the logger</li><li>Upload your log</li></ol><a className="public-entry-button" href="/loot">Open Loot Logger <Icon name="arrow" size={15} /></a></section><small className="auth-note">Admin accounts are invite-only. Members do not need accounts.</small></div></div>
+  const signIn = (email, password) => supabase.auth.signInWithPassword({ email: email.trim(), password })
+  return <LoginScreen onSignIn={signIn} onMemberView={onMemberView} />
 }
 
 function PublicMemberShell({ onAdminLogin }) {
