@@ -61,6 +61,7 @@ export function toUiItem(row) {
   return {
     id: row.id,
     name: row.name,
+    aliases: row.aliases || row.alias || row.item_aliases || [],
     category: row.category,
     tier: row.tier || 'Unspecified',
     chest: row.chests?.label || 'Unassigned',
