@@ -1487,7 +1487,8 @@ function RegearItemsEditor({ items, value = [], onChange, onAddItem }) {
 // ---- Kill log (Plan Phase 6) ----------------------------------------------------------
 // Battles the guild fought in, from Albion's public killboard (via /api/killboard).
 // A death can be turned into a regear: the usual Add regear form opens already filled in.
-const KILL_ROW_BATCH = 30
+const KILL_BATTLES_PER_PAGE = 10
+const KILL_ROWS_PER_PAGE = 25
 const REGEAR_GEAR_SLOTS = ['Weapon', 'Off hand', 'Head', 'Armor', 'Boots', 'Cape']
 const killNumber = new Intl.NumberFormat('en-US')
 const killFame = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
@@ -1546,38 +1547,43 @@ function battleTitle(battle) {
   return `vs ${names.join(', ')}${battle.opponents.length + battle.moreOpponents > 2 ? ` +${battle.opponents.length + battle.moreOpponents - 2}` : ''}`
 }
 
+function shiftUtcDay(day, delta) {
+  const date = new Date(`${day}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + delta)
+  return dayKey(date)
+}
+
 function KillLogPage({ members = [], requests = [], items = [], events = [], onAddRegear }) {
-  const [battles, setBattles] = useState([])
-  const [hasMore, setHasMore] = useState(false)
-  const [listState, setListState] = useState({ loading: true, error: '' })
+  const today = dayKey(new Date())
+  const [day, setDay] = useState(today)
+  const [dayData, setDayData] = useState({})
   const [onlyDeaths, setOnlyDeaths] = useState(true)
+  const [battlePage, setBattlePage] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
   const [details, setDetails] = useState({})
   const [tab, setTab] = useState('deaths')
   const [nameFilter, setNameFilter] = useState('')
-  const [limit, setLimit] = useState(KILL_ROW_BATCH)
+  const [rowPage, setRowPage] = useState(1)
   const detailRef = useRef(null)
+  const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const showDetail = () => requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }))
   const pickBattle = (battleId) => {
     setSelectedId(battleId)
     // On phones the battle's deaths are below the list: bring them into view.
-    if (window.matchMedia('(max-width: 860px)').matches) requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }))
+    if (window.matchMedia('(max-width: 860px)').matches) showDetail()
   }
+  const pickDay = (value) => { if (value) setDay(value > today ? today : value) }
 
-  const loadBattles = async (offset = 0) => {
-    setListState({ loading: true, error: '' })
+  const loadDay = async (target, force = false) => {
+    if (!force && dayData[target]?.battles) return
+    setDayData((current) => ({ ...current, [target]: { ...current[target], loading: true, error: '' } }))
     try {
-      const response = await fetch(`/api/killboard?offset=${offset}`)
+      const response = await fetch(`/api/killboard?day=${target}`)
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error || 'The kill log could not be loaded.')
-      setBattles((current) => {
-        const merged = offset ? [...current] : []
-        for (const battle of body.battles || []) if (!merged.some((entry) => entry.id === battle.id)) merged.push(battle)
-        return merged
-      })
-      setHasMore(Boolean(body.hasMore))
-      setListState({ loading: false, error: '' })
+      if (!response.ok) throw new Error(body.error || 'The battles for this day could not be loaded.')
+      setDayData((current) => ({ ...current, [target]: { loading: false, error: '', battles: body.battles || [], tooOld: Boolean(body.tooOld), partial: Boolean(body.partial) } }))
     } catch (error) {
-      setListState({ loading: false, error: error.message === 'Failed to fetch' ? 'The kill log could not be reached. Check your connection and try again.' : error.message })
+      setDayData((current) => ({ ...current, [target]: { ...current[target], loading: false, error: error.message === 'Failed to fetch' ? 'The kill log could not be reached. Check your connection and try again.' : error.message } }))
     }
   }
 
@@ -1594,58 +1600,73 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
     }
   }
 
-  useEffect(() => { loadBattles(0) }, [])
+  useEffect(() => { loadDay(day) }, [day])
+  useEffect(() => { setBattlePage(1) }, [day, onlyDeaths])
 
-  const visibleBattles = battles.filter((battle) => !onlyDeaths || battle.ourDeaths > 0)
-  const selected = battles.find((battle) => battle.id === selectedId) || null
+  const current = dayData[day] || { loading: true }
+  const dayBattles = current.battles || []
+  const visibleBattles = dayBattles.filter((battle) => !onlyDeaths || battle.ourDeaths > 0)
+  const battlePages = Math.max(1, Math.ceil(visibleBattles.length / KILL_BATTLES_PER_PAGE))
+  const safeBattlePage = Math.min(battlePage, battlePages)
+  const pageBattles = visibleBattles.slice((safeBattlePage - 1) * KILL_BATTLES_PER_PAGE, safeBattlePage * KILL_BATTLES_PER_PAGE)
+  const selected = visibleBattles.find((battle) => battle.id === selectedId) || null
+  const visibleKey = visibleBattles.map((battle) => battle.id).join(',')
   useEffect(() => {
-    if ((!selectedId || !visibleBattles.some((battle) => battle.id === selectedId)) && visibleBattles.length) setSelectedId(visibleBattles[0].id)
-  }, [visibleBattles.map((battle) => battle.id).join(','), selectedId])
+    if (!visibleBattles.some((battle) => battle.id === selectedId)) setSelectedId(visibleBattles[0]?.id || null)
+  }, [visibleKey, selectedId])
   useEffect(() => { if (selectedId) loadBattle(selectedId) }, [selectedId])
-  useEffect(() => { setLimit(KILL_ROW_BATCH) }, [selectedId, tab, nameFilter])
-
-  const days = []
-  for (const battle of visibleBattles) {
-    const day = dayKey(battle.startTime)
-    const group = days.find((entry) => entry.day === day)
-    if (group) group.battles.push(battle)
-    else days.push({ day, battles: [battle] })
-  }
+  useEffect(() => { setRowPage(1) }, [selectedId, tab, nameFilter])
 
   const detail = selectedId ? details[selectedId] : null
   const deaths = detail?.data?.deaths || []
   const kills = detail?.data?.kills || []
   const term = nameFilter.trim().toLowerCase()
   const rows = (tab === 'deaths' ? deaths : kills).filter((event) => !term || `${event.victim.name} ${event.killer.name} ${event.victim.guild} ${event.killer.guild}`.toLowerCase().includes(term))
+  const rowPages = Math.max(1, Math.ceil(rows.length / KILL_ROWS_PER_PAGE))
+  const safeRowPage = Math.min(rowPage, rowPages)
+  const pageRows = rows.slice((safeRowPage - 1) * KILL_ROWS_PER_PAGE, safeRowPage * KILL_ROWS_PER_PAGE)
   const deathInfo = (death) => { const member = rosterMemberFor(members, death.victim.name); return { member, regear: regearForDeath(requests, death, member) } }
   const addedCount = deaths.filter((death) => deathInfo(death).regear).length
   const offRoster = deaths.filter((death) => !deathInfo(death).member).length
+  const changeRowPage = (page) => {
+    setRowPage(page)
+    if ((detailRef.current?.getBoundingClientRect().top ?? 0) < 0) showDetail()
+  }
+  const dayDeaths = dayBattles.reduce((total, battle) => total + battle.ourDeaths, 0)
 
   return <div className="page kill-log-page">
-    <PageIntro eyebrow="Albion killboard · Asia server" title="Kill log" description="Battles Coup de grace fought in, from the game’s public killboard. Open a battle to see who died, then add their death to the regears with the kit already filled in." />
+    <PageIntro eyebrow="Albion killboard · Asia server" title="Kill log" description="Battles Coup de grace fought in, from the game’s public killboard. Pick a day, open a battle to see who died, then add their death to the regears with the kit already filled in." />
     <div className="kill-layout">
       <aside className="panel kill-battles" aria-label="Battles">
-        <div className="day-list-heading"><span className="eyebrow">Battles</span><button type="button" className="kill-refresh" onClick={() => loadBattles(0)} disabled={listState.loading}>{listState.loading && !battles.length ? 'Loading…' : 'Refresh'}</button></div>
-        <label className="kill-only-deaths"><input type="checkbox" checked={onlyDeaths} onChange={(event) => setOnlyDeaths(event.target.checked)} />Only battles where we lost players</label>
-        {listState.error && <div className="kill-error" role="alert"><span>{listState.error}</span><button type="button" className="button button-ghost" onClick={() => loadBattles(0)}>Try again</button></div>}
-        {listState.loading && !battles.length && <div className="kill-skeleton" aria-hidden="true">{[0, 1, 2, 3, 4].map((index) => <span key={index} />)}</div>}
-        <div className="kill-battle-scroll">
-          {days.map((group) => <section key={group.day} className="kill-day">
-            <h3>{readableDay(group.day)}</h3>
-            {group.battles.map((battle) => <button type="button" key={battle.id} className={`day-button kill-battle ${battle.id === selectedId ? 'selected' : ''}`} aria-pressed={battle.id === selectedId} onClick={() => pickBattle(battle.id)}>
-              <span className="kill-battle-top"><span>{utcClockTime(battle.startTime)} UTC</span>{battle.ourDeaths > 0 && <b>{battle.ourDeaths} {battle.ourDeaths === 1 ? 'death' : 'deaths'}</b>}</span>
-              <span className="kill-battle-title">{battleTitle(battle)}</span>
-              <small>{battle.ourPlayers} of ours · {battle.ourKills} {battle.ourKills === 1 ? 'kill' : 'kills'} · {battle.totalPlayers} players</small>
-            </button>)}
-          </section>)}
-          {!listState.loading && !listState.error && !visibleBattles.length && <p className="kill-empty-note">{battles.length ? 'No recent battles where we lost players. Untick the box to see every battle.' : 'No recent battles on the killboard.'}</p>}
-          {hasMore && <button type="button" className="button button-ghost kill-more-battles" onClick={() => loadBattles(battles.length)} disabled={listState.loading}>{listState.loading ? 'Loading…' : 'Load older battles'}</button>}
+        <div className="kill-day-nav">
+          <button type="button" className="kill-day-step" onClick={() => setDay(shiftUtcDay(day, -1))} aria-label="Previous day"><Icon name="chevron" size={16} className="kill-chevron-back" /></button>
+          <label className="kill-date"><span className="sr-only">Battle date (UTC)</span><input type="date" value={day} max={today} onChange={(event) => pickDay(event.target.value)} /></label>
+          <button type="button" className="kill-day-step" onClick={() => setDay(shiftUtcDay(day, 1))} disabled={day >= today} aria-label="Next day"><Icon name="chevron" size={16} /></button>
         </div>
-        <p className="kill-source-note">Small fights (under 3 kills) don’t appear as battles. New deaths show up a few minutes after they happen.</p>
+        <div className="day-list-heading kill-day-heading">
+          <div><span className="eyebrow">{day === today ? 'Today · UTC' : 'UTC day'}</span><strong className="kill-day-title">{readableDay(day)}</strong></div>
+          <div className="kill-day-actions">{day !== today && <button type="button" className="kill-refresh" onClick={() => setDay(today)}>Today</button>}<button type="button" className="kill-refresh" onClick={() => loadDay(day, true)} disabled={current.loading}>{current.loading ? 'Loading…' : 'Refresh'}</button></div>
+        </div>
+        {current.battles && !current.tooOld && <p className="kill-day-summary">{dayBattles.length} {dayBattles.length === 1 ? 'battle' : 'battles'} · {dayDeaths} of our {dayDeaths === 1 ? 'death' : 'deaths'}</p>}
+        <label className="kill-only-deaths"><input type="checkbox" checked={onlyDeaths} onChange={(event) => setOnlyDeaths(event.target.checked)} />Only battles where we lost players</label>
+        {current.error && <div className="kill-error" role="alert"><span>{current.error}</span><button type="button" className="button button-ghost" onClick={() => loadDay(day, true)}>Try again</button></div>}
+        {current.loading && !current.battles && <div className="kill-skeleton" aria-hidden="true">{[0, 1, 2, 3, 4].map((index) => <span key={index} />)}</div>}
+        {current.tooOld && <p className="kill-empty-note">The game’s killboard only keeps about four months of battles, so this day is no longer available. Pick a later date.</p>}
+        {current.partial && <p className="kill-empty-note">Only part of this day is still on the killboard; earlier battles have expired.</p>}
+        {current.battles && !current.tooOld && <div className="kill-battle-list">
+          {pageBattles.map((battle) => <button type="button" key={battle.id} className={`day-button kill-battle ${battle.id === selectedId ? 'selected' : ''}`} aria-pressed={battle.id === selectedId} onClick={() => pickBattle(battle.id)}>
+            <span className="kill-battle-top"><span>{utcClockTime(battle.startTime)} UTC</span>{battle.ourDeaths > 0 && <b>{battle.ourDeaths} {battle.ourDeaths === 1 ? 'death' : 'deaths'}</b>}</span>
+            <span className="kill-battle-title">{battleTitle(battle)}</span>
+            <small>{battle.ourPlayers} of ours · {battle.ourKills} {battle.ourKills === 1 ? 'kill' : 'kills'} · {battle.totalPlayers} players</small>
+          </button>)}
+          {!visibleBattles.length && !current.loading && <p className="kill-empty-note">{dayBattles.length ? `No battles where we lost players on this day. Untick the box to see all ${dayBattles.length}.` : day === today ? 'No battles yet today.' : 'No battles on this day.'}</p>}
+        </div>}
+        <div className="kill-battle-pages"><Pagination page={safeBattlePage} pageSize={KILL_BATTLES_PER_PAGE} total={visibleBattles.length} onPageChange={setBattlePage} /></div>
+        <p className="kill-source-note">Small fights (under 3 kills) don’t appear as battles. New deaths show up a few minutes after they happen. The killboard keeps about four months.</p>
       </aside>
 
       <section ref={detailRef} className="daily-detail kill-detail" aria-live="polite">
-        {!selected && !listState.loading && <EmptyState text="Pick a battle to see its deaths and kills." />}
+        {!selected && current.battles && <EmptyState text={visibleBattles.length ? 'Pick a battle to see its deaths and kills.' : 'No battle to show for this day. Pick another date.'} />}
         {selected && <>
           <div className="daily-detail-heading"><div><span className="eyebrow">{readableDay(dayKey(selected.startTime))} · {utcClockTime(selected.startTime)}–{utcClockTime(selected.endTime)} UTC</span><h2>{battleTitle(selected)}</h2><p>{selected.ourPlayers} Coup de grace players · {killNumber.format(selected.totalPlayers)} players in total · {killNumber.format(selected.totalKills)} kills · {killFame.format(selected.totalFame)} fame</p></div></div>
           <div className="daily-status-tabs" role="tablist" aria-label="Deaths or kills">
@@ -1659,7 +1680,7 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
           {detail?.loading && !detail?.data && <div className="kill-skeleton kill-skeleton-rows" aria-hidden="true">{[0, 1, 2, 3].map((index) => <span key={index} />)}</div>}
           {detail?.error && <div className="kill-error" role="alert"><span>{detail.error}</span><button type="button" className="button button-ghost" onClick={() => loadBattle(selected.id, true)}>Try again</button></div>}
           {detail?.data && <ul className="kill-rows">
-            {rows.slice(0, limit).map((event) => {
+            {pageRows.map((event) => {
               if (tab === 'kills') return <li key={event.id} className="kill-row kill-row-kill">
                 <div className="kill-who"><strong>{event.victim.name}</strong><small>{event.victim.guild || 'No guild'}{event.victim.alliance ? ` [${event.victim.alliance}]` : ''} · {killNumber.format(event.victim.ip)} IP · {utcClockTime(event.time)} UTC</small><small>Killed by <span className="kill-ours">{event.killer.name}</span>{event.killer.ours ? '' : ` (${event.killer.guild})`}{event.participants > 1 ? ` with ${event.participants - 1} more` : ''}</small></div>
                 <KillGear gear={event.victim.gear} size="small" />
@@ -1679,7 +1700,7 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
             })}
             {!rows.length && <li className="kill-empty-note">{term ? `No players match “${nameFilter.trim()}”.` : tab === 'deaths' ? 'Nobody from Coup de grace died in this battle.' : 'Coup de grace got no kills in this battle.'}</li>}
           </ul>}
-          {detail?.data && rows.length > limit && <div className="kill-more"><span>Showing {limit} of {rows.length}</span><button type="button" className="button button-ghost" onClick={() => setLimit((value) => value + KILL_ROW_BATCH)}>Show {Math.min(KILL_ROW_BATCH, rows.length - limit)} more</button></div>}
+          {detail?.data && <Pagination page={safeRowPage} pageSize={KILL_ROWS_PER_PAGE} total={rows.length} onPageChange={changeRowPage} />}
         </>}
       </section>
     </div>
