@@ -1,4 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { parseLog } from './lib/lootParser'
+import { useLootFiles } from './lib/lootSession'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
@@ -1638,6 +1640,59 @@ function BulkRegearModal({ battle, deaths, members, items, events, onClose, onSa
   </Modal>
 }
 
+const LOOT_LOG_MAX_BYTES = 25 * 1024 * 1024
+const OUR_GUILD_NAME = 'coup de grace'
+
+// Pickups per dead player (lower-cased name) from every loaded loot log, plus the time each log covers.
+function buildLootIndex(files) {
+  const byVictim = new Map()
+  const ranges = []
+  let loaded = 0
+  for (const entry of files) {
+    if (entry.parsed?.type !== 'loot') continue
+    loaded += 1
+    let first = Infinity
+    let last = -Infinity
+    for (const row of entry.parsed.rows) {
+      const time = row.timestamp?.getTime()
+      if (!Number.isFinite(time)) continue
+      first = Math.min(first, time)
+      last = Math.max(last, time)
+      const victim = String(row.record.looted_from__name || '').trim().toLowerCase()
+      if (!victim) continue
+      const list = byVictim.get(victim) || []
+      list.push({ time, looter: row.record.looted_by__name || 'Unknown', guild: row.record.looted_by__guild || '', itemId: row.record.item_id || '', itemName: row.record.item_name || row.record.item_id || 'Item', qty: Math.max(1, Number(row.record.quantity) || 1) })
+      byVictim.set(victim, list)
+    }
+    if (first <= last) ranges.push({ first, last })
+  }
+  return { byVictim, ranges, loaded }
+}
+
+// Pickups from this body: up to 2 minutes before the killboard time (clocks differ) and 30 minutes after.
+function lootForDeath(index, death) {
+  const at = new Date(death.time).getTime()
+  const covered = index.ranges.some((range) => at >= range.first - 10 * 60 * 1000 && at <= range.last + 60 * 1000)
+  const groups = new Map()
+  for (const pick of index.byVictim.get(String(death.victim.name || '').toLowerCase()) || []) {
+    if (pick.time < at - 2 * 60 * 1000 || pick.time > at + 30 * 60 * 1000) continue
+    const group = groups.get(pick.looter) || { looter: pick.looter, guild: pick.guild, ours: pick.guild.trim().toLowerCase() === OUR_GUILD_NAME, items: new Map() }
+    const item = group.items.get(pick.itemId || pick.itemName) || { itemId: pick.itemId, itemName: pick.itemName, qty: 0 }
+    item.qty += pick.qty
+    group.items.set(pick.itemId || pick.itemName, item)
+    groups.set(pick.looter, group)
+  }
+  return { covered, groups: [...groups.values()].map((group) => ({ ...group, items: [...group.items.values()] })).sort((first, second) => Number(second.ours) - Number(first.ours)) }
+}
+
+function DeathLoot({ loot }) {
+  if (!loot.groups.length) return <div className="kill-loot kill-loot-none">{loot.covered ? 'No pickups from this body in the loaded loot log.' : 'The loaded loot log doesn’t cover this time.'}</div>
+  return <div className="kill-loot"><span className="kill-loot-label">Picked up by</span>{loot.groups.map((group) => <span key={group.looter} className={`kill-looter ${group.ours ? 'kill-looter-ours' : 'kill-looter-enemy'}`}>
+    <b>{group.looter}</b><small>{group.ours ? 'guildmate' : group.guild || 'no guild'}</small>
+    <span className="kill-looter-items">{group.items.slice(0, 8).map((item) => <span key={item.itemId || item.itemName} className="kill-looter-item" title={`${item.itemName}${item.qty > 1 ? ` ×${item.qty}` : ''}`}>{item.itemId && !/_TRASH$/.test(item.itemId) ? <img src={albionItemIcon(item.itemId)} alt={item.itemName} width="28" height="28" loading="lazy" decoding="async" /> : /_TRASH$/.test(item.itemId) ? <Icon name="trash" size={15} /> : item.itemName}{item.qty > 1 && <i>{item.qty}</i>}</span>)}{group.items.length > 8 && <small>+{group.items.length - 8} more</small>}</span>
+  </span>)}</div>
+}
+
 function shiftUtcDay(day, delta) {
   const date = new Date(`${day}T12:00:00Z`)
   date.setUTCDate(date.getUTCDate() + delta)
@@ -1656,6 +1711,23 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
   const [nameFilter, setNameFilter] = useState('')
   const [rowPage, setRowPage] = useState(1)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [lootFiles, setLootFiles] = useLootFiles()
+  const [lootError, setLootError] = useState('')
+  const lootInputRef = useRef(null)
+  const lootIndex = useMemo(() => buildLootIndex(lootFiles), [lootFiles])
+  const lootLogs = lootFiles.filter((entry) => entry.parsed?.type === 'loot')
+  const addLootLogs = async (list) => {
+    setLootError('')
+    const loaded = []
+    for (const picked of Array.from(list || [])) {
+      if (!/\.(txt|log|csv)$/i.test(picked.name)) { setLootError(`${picked.name} was skipped. Choose the loot-events .txt file the logger created.`); continue }
+      if (picked.size > LOOT_LOG_MAX_BYTES) { setLootError(`${picked.name} is over 25 MB, too large to open here.`); continue }
+      const parsed = parseLog(await picked.text())
+      if (parsed.type !== 'loot') { setLootError(`${picked.name} isn’t a loot log. Choose the loot-events file, not the killfeed.`); continue }
+      loaded.push({ name: picked.name, size: picked.size, parsed })
+    }
+    if (loaded.length) setLootFiles((current) => [...current, ...loaded])
+  }
   const detailRef = useRef(null)
   const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const showDetail = () => requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }))
@@ -1771,6 +1843,13 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
             <label className="kill-filter"><span className="sr-only">Filter by name</span><Icon name="search" size={15} /><input value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Filter by player or guild" /></label>
             {tab === 'deaths' && detail?.data && deaths.length > 0 && <div className="kill-toolbar-summary"><p>{addedCount} of {deaths.length} already in regears{offRoster ? ` · ${offRoster} not on the roster` : ''}</p>{onBulkAdd && notAdded.length > 1 && <button type="button" className="button button-ghost kill-bulk-button" onClick={() => setBulkOpen(true)} disabled={!bulkReady}><Icon name="plus" size={14} />Add all to regears ({bulkReady})</button>}</div>}
           </div>
+          {tab === 'deaths' && <div className="kill-loot-bar">
+            <input ref={lootInputRef} type="file" accept=".txt,.log,.csv" multiple hidden onChange={(event) => { addLootLogs(event.target.files); event.target.value = '' }} />
+            {lootLogs.length
+              ? <><span><Icon name="box" size={15} />Loot log: {lootLogs.map((entry) => entry.name).join(', ')}</span><button type="button" className="kill-refresh" onClick={() => lootInputRef.current?.click()}>Add another</button><button type="button" className="kill-refresh" onClick={() => setLootFiles((current) => current.filter((entry) => entry.parsed?.type !== 'loot'))}>Remove</button></>
+              : <><span><Icon name="box" size={15} />See who picked up each dead player’s gear: load the loot log from this fight.</span><button type="button" className="kill-refresh" onClick={() => lootInputRef.current?.click()}>Load loot log</button></>}
+            {lootError && <small className="kill-loot-error" role="alert">{lootError}</small>}
+          </div>}
           {detail?.loading && !detail?.data && <div className="kill-skeleton kill-skeleton-rows" aria-hidden="true">{[0, 1, 2, 3].map((index) => <span key={index} />)}</div>}
           {detail?.error && <div className="kill-error" role="alert"><span>{detail.error}</span><button type="button" className="button button-ghost" onClick={() => loadBattle(selected.id, true)}>Try again</button></div>}
           {detail?.data && <ul className="kill-rows">
@@ -1790,6 +1869,7 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
                     : <button type="button" className="button button-primary" onClick={() => onAddRegear?.(regearPrefillFromDeath(event, member, items, events))}><Icon name="plus" size={14} />Add to regears</button>}
                   {!member && !regear && <small className="kill-off-roster">Not on the roster</small>}
                 </div>
+                {lootIndex.loaded > 0 && <DeathLoot loot={lootForDeath(lootIndex, event)} />}
               </li>
             })}
             {!rows.length && <li className="kill-empty-note">{term ? `No players match “${nameFilter.trim()}”.` : tab === 'deaths' ? 'Nobody from Coup de grace died in this battle.' : 'Coup de grace got no kills in this battle.'}</li>}
