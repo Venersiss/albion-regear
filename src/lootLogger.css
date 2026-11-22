@@ -239,3 +239,4 @@
 .ll-more .ll-btn { border-color: var(--ll-line); }
 .ll-looter { content-visibility: auto; contain-intrinsic-size: auto 160px; }
 .ll-items li { content-visibility: auto; contain-intrinsic-size: auto 72px; }
+.ll-icon-trash { display: inline-grid; place-items: center; border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .03); color: var(--ll-muted); }

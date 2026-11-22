@@ -1676,3 +1676,22 @@ button.dashboard-metric:focus-visible { outline: 2px solid var(--ember); outline
   .bulk-regear-list { max-height: 50vh; }
   .kill-bulk-button { width: 100%; min-height: 44px; justify-content: center; }
 }
+/* Plan 6.6: who picked up a dead player's gear (from loaded loot logs) */
+.kill-loot-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 12px; padding: 10px 12px; border: 1px dashed #4a3b2e; border-radius: 8px; color: #b9aa9d; font-size: 13px; }
+.kill-loot-bar > span { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.kill-loot-error { flex-basis: 100%; color: #f0b9a3; font-size: 12.5px; }
+.kill-loot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid #2c2520; }
+.kill-loot-none { color: #8a8077; font-size: 12.5px; }
+.kill-loot-label { color: #8a8077; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.kill-looter { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: #171411; font-size: 13px; }
+.kill-looter b { color: #efe3d7; }
+.kill-looter small { color: #998c80; font-size: 12px; }
+.kill-looter-ours { border-color: #2f4a33; }
+.kill-looter-ours small { color: var(--green); }
+.kill-looter-enemy { border-color: #5a3326; }
+.kill-looter-enemy small { color: #e98d6a; }
+.kill-looter-items { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.kill-looter-item { position: relative; display: inline-grid; place-items: center; min-width: 28px; height: 28px; border-radius: 4px; background: #110f0d; color: #c9b9ab; font-size: 11px; }
+.kill-looter-item img { display: block; width: 28px; height: 28px; }
+.kill-looter-item i { position: absolute; right: -3px; bottom: -3px; padding: 0 3px; border-radius: 3px; background: #2a211b; color: #f0dfd0; font-size: 10px; font-style: normal; }
+.kill-row:has(.kill-loot) { contain-intrinsic-size: auto 130px; }

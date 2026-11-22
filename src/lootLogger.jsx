@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import './lootLogger.css'
 import { filterRows, parseLog, sortRows, summarize } from './lib/lootParser'
+import { useLootFiles } from './lib/lootSession'
 
 export const LOOT_LOGGER_RELEASES_URL = 'https://github.com/Venersiss/loot-logger/releases/latest'
 export const LOOT_LOGGER_REPO_URL = 'https://github.com/Venersiss/loot-logger'
@@ -72,6 +73,8 @@ const iconUrl = (itemId, size) => `https://render.albiononline.com/v1/item/${enc
 
 function ItemIcon({ itemId, name = '', size = 32 }) {
   const [failed, setFailed] = useState(false)
+  // T4_TRASH etc.: gear destroyed when its owner died. Real items, but the icon server has no picture for them.
+  if (/_TRASH$/.test(itemId || '')) return <span className="ll-icon ll-icon-trash" style={{ width: size, height: size }} role="img" aria-label="Trash" title="Trash: gear destroyed when its owner died. Only sells to an NPC for a little silver."><svg viewBox="0 0 24 24" width={Math.round(size * 0.55)} height={Math.round(size * 0.55)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></span>
   if (failed || !itemId || itemId.startsWith('unknown_')) return <span className="ll-icon ll-icon-empty" style={{ width: size, height: size }} aria-hidden="true" />
   return <img className="ll-icon" src={iconUrl(itemId, size * 2)} width={size} height={size} alt={name} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
 }
@@ -306,7 +309,7 @@ const FAQ = [
 ]
 
 export function LootLoggerPage({ standalone = false }) {
-  const [files, setFiles] = useState([])
+  const [files, setFiles] = useLootFiles()
   const [selected, setSelected] = useState(0)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
