@@ -1650,3 +1650,29 @@ button.dashboard-metric:focus-visible { outline: 2px solid var(--ember); outline
 .kill-battle-pages .pagination { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 4px; }
 .kill-battle-pages .pagination-controls { flex-wrap: wrap; justify-content: center; }
 @media (max-width: 600px) { .kill-day-nav { grid-template-columns: 44px minmax(0, 1fr) 44px; }.kill-day-step, .kill-date input { min-height: 44px; }.kill-detail .pagination { flex-direction: column; align-items: stretch; }.kill-detail .pagination-controls { flex-wrap: wrap; justify-content: center; } }
+/* Plan 6.5: add a battle's deaths in one go */
+.kill-toolbar-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.kill-bulk-button { min-height: 40px; white-space: nowrap; }
+.modal:has(.bulk-regear) { width: min(100%, 760px); }
+.bulk-regear { display: grid; gap: 14px; }
+.bulk-regear-fields { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+.bulk-regear-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 14px; color: #9d9085; font-size: 13px; }
+.bulk-regear-all { display: flex; align-items: center; gap: 9px; min-height: 36px; color: #e0d2c6; font-weight: 600; cursor: pointer; }
+.bulk-regear-all input, .bulk-regear-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--ember); }
+.bulk-regear-list { display: grid; gap: 6px; max-height: min(46vh, 460px); margin: 0; padding: 0 4px 0 0; overflow-y: auto; list-style: none; overscroll-behavior: contain; scrollbar-width: thin; }
+.bulk-regear-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 120px; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: #171411; }
+.bulk-regear-off { opacity: .6; }
+.bulk-regear-who { display: grid; gap: 2px; min-width: 0; }
+.bulk-regear-who strong { color: #efe3d7; font-size: 14px; }
+.bulk-regear-who small { color: #998c80; font-size: 12px; }
+.bulk-regear-kit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bulk-regear-row select { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: #211b17; color: var(--text); color-scheme: dark; font: inherit; font-size: 13px; }
+.bulk-regear-row select:focus { border-color: #8a5a3a; outline: none; box-shadow: 0 0 0 3px rgba(212, 119, 54, .18); }
+.bulk-regear-progress { margin-right: auto; color: #e7b48c; font-size: 13px; }
+@media (max-width: 600px) {
+  .bulk-regear-fields { grid-template-columns: 1fr; }
+  .bulk-regear-row { grid-template-columns: 24px minmax(0, 1fr); }
+  .bulk-regear-row select { grid-column: 2; min-height: 44px; }
+  .bulk-regear-list { max-height: 50vh; }
+  .kill-bulk-button { width: 100%; min-height: 44px; justify-content: center; }
+}
