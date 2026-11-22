@@ -380,6 +380,13 @@ export async function markRequestRegeared(guildId, requestId, admin = {}) {
   return { regearedAt, regearedBy: adminName }
 }
 
+export async function reopenRegearRequest(guildId, requestId, admin = {}) {
+  const updatedAt = new Date().toISOString()
+  const adminName = admin.username || admin.email || 'Administrator'
+  const { error } = await supabase.from('regear_requests').update({ status: 'open', regeared_at: null, issued_by: null, regeared_by: null, regeared_by_name: null, updated_by: admin.id || null, updated_by_name: adminName, updated_at: updatedAt }).eq('id', requestId).eq('guild_id', guildId).eq('status', 'regeared')
+  if (error) throw error
+}
+
 export async function listAdminInvites(guildId, accessToken) {
   if (accessToken) {
     const response = await fetch('/api/admin-invites', { headers: { Authorization: `Bearer ${accessToken}` } })

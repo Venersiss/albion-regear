@@ -1386,3 +1386,60 @@ label, .auth-form label { font-size: 13px; }
 .overflow-menu-item.danger { color: #e6a596; }
 .overflow-menu-item.danger:hover, .overflow-menu-item.danger:focus-visible { background: rgba(116, 48, 39, .32); color: #f6bfb2; }
 .member-card-actions .overflow-menu-list { top: auto; bottom: calc(100% + 6px); }
+
+/* Plan 2.1: Daily regears action bar. Sized by the panel, not the window: when it is narrow,
+   the date sits above one row of actions (Add regear + more menu holding the secondary actions). */
+.overflow-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+.overflow-menu-item.menu-compact-only { display: none; }
+.daily-detail { container-type: inline-size; container-name: daily-detail; }
+.daily-heading-actions .overflow-menu-trigger { flex: none; }
+@container daily-detail (max-width: 760px) {
+  .daily-detail-heading { flex-direction: column; align-items: stretch; }
+  .daily-detail-heading .daily-heading-actions { width: 100%; justify-content: flex-start; flex-wrap: nowrap; }
+}
+@container daily-detail (max-width: 560px) {
+  .daily-heading-actions .daily-secondary-action { display: none; }
+  .daily-heading-actions .overflow-menu-item.menu-compact-only { display: flex; }
+  .daily-detail-heading .daily-heading-actions .button-primary { flex: 1; width: auto; min-height: 44px; }
+  .daily-detail-heading .daily-heading-actions .overflow-menu-trigger { flex: none; width: 44px; min-height: 44px; }
+}
+/* Breadcrumb stays on one line; drop the guild name when the top bar is crowded. */
+.breadcrumbs { white-space: nowrap; flex: none; }
+@media (max-width: 1100px) { .breadcrumbs > span, .breadcrumbs > svg { display: none; } }
+
+/* Plan 2.2: flow bar (UTC date -> CTA/event -> regears) at the top of Daily regears. */
+.daily-detail .daily-detail-heading { flex-direction: column; align-items: stretch; gap: 12px; }
+.daily-detail .daily-heading-actions { justify-content: flex-end; }
+.regear-flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 10px; background: rgba(21, 18, 16, .78); overflow: hidden; }
+.regear-flow-step { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 14px 16px 15px; }
+.regear-flow-step + .regear-flow-step { border-left: 1px solid var(--line); }
+.regear-flow-step > div { min-width: 0; }
+.regear-flow-mark { flex: none; display: grid; place-items: center; width: 26px; height: 26px; margin-top: 1px; border: 1px solid #5a4636; border-radius: 50%; color: #b3a89c; font-family: 'DM Mono', monospace; font-size: 12px; }
+.regear-flow-step small { display: block; color: #a99c91; font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.regear-flow-step strong { display: block; margin-top: 3px; color: #efe3d6; font-family: 'Newsreader', serif; font-size: 21px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+.regear-flow-step em { display: block; margin-top: 3px; color: #b3a89c; font-size: 13px; font-style: normal; }
+.regear-flow-step.is-done .regear-flow-mark { border-color: rgba(212, 119, 54, .7); background: #36241a; color: #f3c9a6; }
+.regear-flow-step.is-current { background: linear-gradient(180deg, rgba(212, 119, 54, .13), rgba(212, 119, 54, 0) 70%); box-shadow: inset 0 2px var(--ember); }
+.regear-flow-step.is-current .regear-flow-mark { border-color: var(--ember); background: var(--ember); color: #1b120c; font-weight: 600; }
+.regear-flow-step.is-todo strong { color: #a99c91; }
+.regear-flow-missing { color: #a99c91 !important; font-style: italic; }
+.regear-flow-link { display: inline-flex; align-items: center; min-height: 28px; margin-top: 2px; padding: 0; border: 0; background: none; color: #f0a76d; font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.regear-flow-link:hover { color: #ffc595; }
+.regear-flow-link:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; border-radius: 3px; }
+@container daily-detail (max-width: 560px) {
+  .regear-flow { grid-template-columns: 1fr; }
+  .regear-flow-step + .regear-flow-step { border-left: 0; border-top: 1px solid var(--line); }
+  .regear-flow-step { padding: 11px 14px; }
+  .regear-flow-step strong { font-size: 18px; }
+  .daily-detail .daily-heading-actions { justify-content: stretch; }
+}
+
+/* Plan 2.3: chest badge on regear rows, Undo in the toast. */
+.regear-entry-tags { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.regear-chest-badge { display: inline-flex; align-items: baseline; gap: 7px; padding: 5px 10px; border: 1px solid rgba(212, 119, 54, .45); border-radius: 6px; background: rgba(54, 36, 26, .7); }
+.regear-chest-badge small { color: #b3a89c; font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.regear-chest-badge strong { color: #f3c9a6; font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 600; }
+.toast { font-size: 14px; }
+.toast-action { margin-left: 6px; min-height: 32px; padding: 0 12px; border: 1px solid rgba(212, 119, 54, .6); border-radius: 6px; background: rgba(212, 119, 54, .14); color: #f6c39a; font: inherit; font-weight: 600; cursor: pointer; }
+.toast-action:hover { background: rgba(212, 119, 54, .26); color: #ffd6b3; }
+.toast-action:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
