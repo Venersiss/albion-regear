@@ -121,6 +121,7 @@ export function toUiRequest(row, members = [], notifications = [], childItems = 
     id: row.id,
     memberId: row.member_id,
     memberName: member?.character_name || 'Unknown member',
+    killEventId: row.kill_event_id || null,
     role: row.role,
     reportedBy: row.reported_by_name || createdActivity?.adminName || '',
     diedAt: row.died_at || row.created_at,
@@ -357,7 +358,14 @@ export async function insertRegearRequest(guildId, request) {
   const event = request.eventId ? null : await ensureRegearEvent(guildId, { date: request.eventDate || utcDayKey(diedAt), name: request.eventName }, { id: request.reportedBy, username: request.reportedByName })
   const items = normalizeRequestItems(request.items)
   const slots = itemSlots(items)
-  const { data, error } = await supabase.from('regear_requests').insert({ guild_id: guildId, member_id: request.memberId, event_id: request.eventId || event?.id || null, reported_by: request.reportedBy || null, reported_by_name: request.reportedByName || null, role: request.role, death_note: request.note, issue_chest: request.chest || 'Unassigned', died_at: diedAt, chest_id: await chestIdFor(guildId, request.chest), ...slots }).select('*').single()
+  const row = { guild_id: guildId, member_id: request.memberId, event_id: request.eventId || event?.id || null, reported_by: request.reportedBy || null, reported_by_name: request.reportedByName || null, role: request.role, death_note: request.note, issue_chest: request.chest || 'Unassigned', died_at: diedAt, chest_id: await chestIdFor(guildId, request.chest), ...slots }
+  if (request.killEventId) row.kill_event_id = String(request.killEventId)
+  let { data, error } = await supabase.from('regear_requests').insert(row).select('*').single()
+  // Before supabase/kill_log.sql is run the column doesn't exist yet: save without it.
+  if (error && row.kill_event_id && String(error.message || '').includes('kill_event_id')) {
+    delete row.kill_event_id
+    ;({ data, error } = await supabase.from('regear_requests').insert(row).select('*').single())
+  }
   if (error) throw error
   await saveRequestItems(data.id, items)
   return { ...data, event, items }
