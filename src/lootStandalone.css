@@ -1,0 +1,5 @@
+/* Base for the standalone /loot page (the dashboard's styles.css isn't loaded there). */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root { color-scheme: dark; font-family: 'Manrope', sans-serif; background: #12100e; font-synthesis: none; }
+html, body { margin: 0; background: #12100e; }
