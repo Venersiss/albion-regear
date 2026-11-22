@@ -1578,20 +1578,16 @@ button.dashboard-metric:focus-visible { outline: 2px solid var(--ember); outline
 .admin-chat-earlier:disabled { opacity: .6; cursor: wait; }
 /* Plan 6: Kill log */
 .kill-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
-.kill-battles { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 120px); padding: 14px; }
+.kill-battles { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
 .kill-refresh { min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: #c9b9ab; font: inherit; font-size: 12px; cursor: pointer; }
 .kill-refresh:hover:not(:disabled) { border-color: #69452f; color: #f0dfd0; }
 .kill-refresh:disabled { opacity: .6; cursor: default; }
 .kill-only-deaths { display: flex; align-items: center; gap: 9px; min-height: 36px; color: #b9aa9d; font-size: 13px; cursor: pointer; }
 .kill-only-deaths input { width: 16px; height: 16px; accent-color: var(--ember); }
-.kill-battle-scroll { min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px 4px; overscroll-behavior: contain; scrollbar-width: thin; }
-.kill-day + .kill-day { margin-top: 12px; }
-.kill-day h3 { position: sticky; top: 0; z-index: 1; margin: 0; padding: 6px 2px; background: #1a1714; color: #8a8077; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .kill-battle { gap: 4px; }
 .kill-battle-top { display: flex; justify-content: space-between; gap: 8px; color: #e0d2c6; font-size: 14px; font-weight: 600; }
 .kill-battle-top b { color: #e98d6a; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .kill-battle-title { overflow: hidden; color: #b9aa9d; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.kill-more-battles { width: 100%; margin-top: 10px; }
 .kill-source-note, .kill-empty-note { margin: 0; color: #8a8077; font-size: 12px; line-height: 1.5; }
 .kill-empty-note { padding: 16px 4px; list-style: none; }
 .kill-error { display: grid; gap: 10px; padding: 12px; border: 1px solid #6b3a2c; border-radius: 8px; background: rgba(80, 34, 24, .35); color: #f0c9b8; font-size: 13px; }
@@ -1621,13 +1617,10 @@ button.dashboard-metric:focus-visible { outline: 2px solid var(--ember); outline
 .kill-added { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .kill-off-roster { color: #d9a25f; font-size: 12px; }
 .kill-fame { color: #b9aa9d; font-size: 13px; white-space: nowrap; }
-.kill-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin: 16px 0 4px; color: #998c80; font-size: 13px; }
 .kill-prefill-warning { margin: 0 0 14px; padding: 10px 12px; border: 1px solid #6b5230; border-radius: 7px; background: rgba(90, 64, 28, .3); color: #ecd3a8; font-size: 13px; line-height: 1.45; }
 @media (max-width: 1100px) { .kill-row { grid-template-columns: minmax(0, 1fr) auto; }.kill-gear { grid-column: 1 / -1; grid-row: 2; } }
 @media (max-width: 860px) {
   .kill-layout { grid-template-columns: 1fr; }
-  .kill-battles { position: static; max-height: none; }
-  .kill-battle-scroll { max-height: 330px; }
 }
 @media (max-width: 600px) {
   .kill-row { grid-template-columns: 1fr; gap: 10px; }
@@ -1639,3 +1632,21 @@ button.dashboard-metric:focus-visible { outline: 2px solid var(--ember); outline
 }
 @media (prefers-reduced-motion: reduce) { .kill-skeleton span { animation: none; } }
 .kill-detail { scroll-margin-top: 80px; }
+.kill-day-nav { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 6px; }
+.kill-day-step { display: grid; place-items: center; min-height: 40px; border: 1px solid var(--line); border-radius: 7px; background: #171411; color: #c9b9ab; cursor: pointer; }
+.kill-day-step:hover:not(:disabled) { border-color: #805237; background: #302119; color: #f0dfd0; }
+.kill-day-step:disabled { cursor: not-allowed; opacity: .4; }
+.kill-chevron-back { transform: rotate(180deg); }
+.kill-date input { width: 100%; min-height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: #171411; color: var(--text); color-scheme: dark; font: inherit; font-size: 14px; }
+.kill-date input:focus { border-color: #8a5a3a; outline: none; box-shadow: 0 0 0 3px rgba(212, 119, 54, .18); }
+.kill-day-heading { align-items: flex-end; gap: 10px; padding-top: 4px; }
+.kill-day-heading > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.kill-day-title { color: #e6d9ce !important; font-family: 'Manrope', sans-serif !important; font-size: 15px !important; font-weight: 700 !important; }
+.kill-day-actions { display: flex; gap: 6px; }
+.kill-day-summary { margin: 0; color: #b9aa9d; font-size: 13px; }
+.kill-battle-list { display: grid; }
+.kill-battle-list .kill-battle:first-child { margin-top: 0; }
+.kill-battle-pages:empty { display: none; }
+.kill-battle-pages .pagination { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 4px; }
+.kill-battle-pages .pagination-controls { flex-wrap: wrap; justify-content: center; }
+@media (max-width: 600px) { .kill-day-nav { grid-template-columns: 44px minmax(0, 1fr) 44px; }.kill-day-step, .kill-date input { min-height: 44px; }.kill-detail .pagination { flex-direction: column; align-items: stretch; }.kill-detail .pagination-controls { flex-wrap: wrap; justify-content: center; } }

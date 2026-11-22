@@ -2,6 +2,7 @@
 // The browser can't call the game API directly, so this function fetches it, keeps only
 // what the dashboard needs and lets Vercel's CDN cache the answer.
 //   GET /api/killboard?offset=0     recent battles the guild fought in (50 per page)
+//   GET /api/killboard?day=2026-11-21  every battle that started on that UTC day
 //   GET /api/killboard?battle=123   deaths and kills of one battle
 import itemNames from './_data/albionItems.js'
 
@@ -11,20 +12,26 @@ const ALLIANCE_ID = 'b1ydkre3QZCe4vNTI6OLLw'
 const BATTLE_PAGE = 50
 const EVENT_PAGE = 51
 const MAX_EVENT_PAGES = 20
+// The game API only pages 10,000 battles back (about four months for this guild).
+const MAX_BATTLE_OFFSET = 9999
+const DAY_MS = 24 * 60 * 60 * 1000
 const GEAR_SLOTS = [['MainHand', 'Weapon'], ['OffHand', 'Off hand'], ['Head', 'Head'], ['Armor', 'Armor'], ['Shoes', 'Boots'], ['Cape', 'Cape'], ['Bag', 'Bag'], ['Mount', 'Mount'], ['Potion', 'Potion'], ['Food', 'Food']]
 
 async function gameApi(path) {
   let lastError
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    let wait = 600 * (attempt + 1)
     try {
       const response = await fetch(`${API}${path}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15000) })
       if (response.ok) return await response.json()
-      lastError = new Error(`The Albion killboard answered ${response.status}.`)
+      lastError = new Error(response.status === 429 ? "The Albion killboard is busy right now. Wait a few seconds and try again." : `The Albion killboard answered ${response.status}.`)
       if (response.status < 500 && response.status !== 429) break
+      // Too many requests: back off longer before asking again.
+      if (response.status === 429) wait = 1500 * (attempt + 1)
     } catch (error) {
       lastError = error.name === 'TimeoutError' ? new Error('The Albion killboard took too long to answer.') : error
     }
-    await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)))
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, wait))
   }
   throw lastError
 }
@@ -82,6 +89,56 @@ function summarizeBattle(battle) {
   }
 }
 
+// Start time of the battle at one offset (newest first). Past the end of the list counts as "older than anything".
+async function battleTime(offset) {
+  const rows = await gameApi(`/battles?guildId=${GUILD_ID}&limit=1&offset=${offset}&sort=recent`)
+  return { offset, time: rows?.[0] ? Date.parse(rows[0].startTime) : Number.NEGATIVE_INFINITY }
+}
+
+// The game API can't filter battles by date, but its list is sorted newest first. Find where the
+// day ends in that list by estimating from the guild's battle rate and narrowing down (one request
+// at a time: the API rate-limits bursts), then read pages from there.
+async function battlesForDay(day) {
+  const start = Date.parse(`${day}T00:00:00Z`)
+  const end = start + DAY_MS
+  if (start > Date.now()) return { battles: [], tooOld: false }
+  let newer = await battleTime(0) // invariant: newer.time >= end, older.time < end
+  let from = 0
+  if (newer.time >= end) {
+    let older = await battleTime(MAX_BATTLE_OFFSET)
+    if (older.time >= end) return { battles: [], tooOld: true }
+    for (let step = 0; step < 16 && older.offset - newer.offset > BATTLE_PAGE; step += 1) {
+      const span = older.offset - newer.offset
+      let guess
+      if (Number.isFinite(older.time) && step < 8) {
+        guess = newer.offset + Math.round(((newer.time - end) / (newer.time - older.time)) * span)
+        guess += guess - newer.offset < span / 2 ? 15 : -15 // aim a little past the estimate so each probe tightens both sides
+      } else {
+        guess = newer.offset + Math.floor(span / 2)
+      }
+      const probe = await battleTime(Math.min(older.offset - 1, Math.max(newer.offset + 1, guess)))
+      if (probe.time >= end) newer = probe
+      else older = probe
+    }
+    from = newer.offset
+  }
+  const battles = []
+  for (let offset = from; offset <= MAX_BATTLE_OFFSET; offset += BATTLE_PAGE) {
+    const rows = await gameApi(`/battles?guildId=${GUILD_ID}&limit=${Math.min(BATTLE_PAGE, MAX_BATTLE_OFFSET - offset + 1)}&offset=${offset}&sort=recent`)
+    for (const battle of rows || []) {
+      const time = Date.parse(battle.startTime)
+      if (time >= start && time < end && !battles.some((entry) => entry.id === battle.id)) battles.push(battle)
+    }
+    const last = rows?.[rows.length - 1]
+    if (!rows || rows.length < BATTLE_PAGE || Date.parse(last.startTime) < start) {
+      // Reached the oldest battle the API will return while still inside the day: the day is cut off.
+      const cutOff = offset + BATTLE_PAGE > MAX_BATTLE_OFFSET && last && Date.parse(last.startTime) >= start
+      return { battles, tooOld: false, partial: Boolean(cutOff) }
+    }
+  }
+  return { battles, tooOld: false, partial: true }
+}
+
 async function battleEvents(battleId) {
   const seen = new Map()
   for (let page = 0; page < MAX_EVENT_PAGES; page += 1) {
@@ -116,7 +173,16 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', settled ? 's-maxage=3600, stale-while-revalidate=86400' : 's-maxage=60, stale-while-revalidate=300')
       return res.status(200).json({ battle: battle ? summarizeBattle(battle) : null, ...events })
     }
-    const offset = Math.max(0, Math.min(5000, Number.parseInt(req.query.offset, 10) || 0))
+    const day = String(req.query.day || '')
+    if (day) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`))) return res.status(400).json({ error: 'Pick a valid date.' })
+      const result = await battlesForDay(day)
+      // Finished days don't change; today keeps growing.
+      const finished = Date.parse(`${day}T00:00:00Z`) + DAY_MS + 30 * 60 * 1000 < Date.now()
+      res.setHeader('Cache-Control', finished ? 's-maxage=3600, stale-while-revalidate=86400' : 's-maxage=60, stale-while-revalidate=300')
+      return res.status(200).json({ day, tooOld: result.tooOld, partial: Boolean(result.partial), battles: result.battles.map(summarizeBattle) })
+    }
+    const offset = Math.max(0, Math.min(MAX_BATTLE_OFFSET - BATTLE_PAGE + 1, Number.parseInt(req.query.offset, 10) || 0))
     const battles = await gameApi(`/battles?guildId=${GUILD_ID}&limit=${BATTLE_PAGE}&offset=${offset}&sort=recent`)
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
     return res.status(200).json({ battles: (battles || []).map(summarizeBattle), hasMore: (battles || []).length === BATTLE_PAGE, offset })
