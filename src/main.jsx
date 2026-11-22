@@ -244,7 +244,7 @@ function App() {
     } catch (error) { notify(error.message || 'Could not update the regear request') }
   }
 
-  const liveReportDeathV2 = async ({ memberId, memberName, note, chest, role, diedAt, eventId, eventName, eventDate, eventTime, killEventId, items: requestedItems }) => {
+  const liveReportDeathV2 = async ({ memberId, memberName, note, chest, role, diedAt, eventId, eventName, eventDate, eventTime, killEventId, items: requestedItems }, { bulk = false } = {}) => {
     const adminName = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'Administrator'
     const admin = { id: session?.user?.id, username: adminName, email: session?.user?.email }
     const itemLines = requestedItems.map((item, index) => typeof item === 'string' ? { name: item, category: 'Custom', quantity: 1, sortOrder: index } : { ...item, quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: item.sortOrder ?? index })
@@ -253,22 +253,48 @@ function App() {
     try {
       let requestId
       let savedEvent = null
+      let usedEventId = eventId || null
       if (live) {
         savedEvent = eventId ? null : await createRegearEvent(guild.id, { date: effectiveEventDate, name: effectiveEventName, time: eventTime }, admin)
         const created = await insertRegearRequest(guild.id, { memberId, memberName, note, chest, role, diedAt, eventId: eventId || savedEvent?.id, eventName: effectiveEventName, eventDate: effectiveEventDate, reportedBy: session?.user?.id, reportedByName: adminName, killEventId, items: itemLines })
         requestId = created.id
+        usedEventId = created.event_id || eventId || savedEvent?.id || null
         if (savedEvent) setRegearEvents((current) => current.some((entry) => entry.id === savedEvent.id) ? current : [...current, { id: savedEvent.id, date: savedEvent.event_date, name: savedEvent.name, notes: savedEvent.notes || '', createdBy: savedEvent.created_by_name || adminName, createdAt: savedEvent.created_at }])
         setRegearRequests((current) => [{ id: created.id, memberId, memberName, killEventId: created.kill_event_id || killEventId || null, role, diedAt: created.died_at, deathNote: created.death_note, chest: created.issue_chest, eventId: created.event_id || eventId || savedEvent?.id, eventName: savedEvent?.name || effectiveEventName, eventDate: savedEvent?.event_date || effectiveEventDate, eventTime: savedEvent?.event_time || eventTime || '', status: created.status, items: itemLines, weapon: created.weapon, offHand: created.off_hand, helmet: created.helmet, armor: created.armor, boots: created.boots, regearedAt: created.regeared_at, reportedBy: created.reported_by_name || adminName, activity: [{ id: `local-created-${created.id}`, action: 'Regear added', adminName: created.reported_by_name || adminName, at: created.created_at || new Date().toISOString() }] }, ...current])
       } else {
-        requestId = `local-request-${Date.now()}`
+        requestId = `local-request-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
         const localEvent = { id: eventId || `local-event-${effectiveEventDate}-${effectiveEventName}`, date: effectiveEventDate, time: eventTime || '', name: effectiveEventName, createdBy: adminName, createdAt: new Date().toISOString() }
+        usedEventId = localEvent.id
         setRegearEvents((current) => current.some((entry) => entry.id === localEvent.id) ? current : [...current, localEvent])
         setRegearRequests((current) => [{ id: requestId, memberId, memberName, killEventId: killEventId || null, role, diedAt, deathNote: note, chest, eventId: localEvent.id, eventName: localEvent.name, eventDate: localEvent.date, eventTime: localEvent.time, status: 'open', items: itemLines, weapon: itemLines.find((item) => item.category === 'Weapon')?.name || null, offHand: itemLines.find((item) => item.category === 'Off hand')?.name || null, helmet: itemLines.find((item) => item.category === 'Head')?.name || null, armor: itemLines.find((item) => item.category === 'Armor')?.name || null, boots: itemLines.find((item) => item.category === 'Boots')?.name || null, reportedBy: adminName, activity: [{ id: `local-created-${requestId}`, action: 'Regear added', adminName, at: new Date().toISOString() }] }, ...current])
       }
       setMembers((current) => current.map((member) => member.name === memberName ? { ...member, status: 'Open regear', last: 'Open regear · just now', issuedBy: 'Unassigned', deathNote: note, chest, regearRole: role, regearItems: itemLines.map((item) => item.name), requestId } : member))
+      if (bulk) return { eventId: usedEventId }
       setShowDeathModal(false)
       notify(`${memberName} added to the regear queue`)
-    } catch (error) { notify(error.code === '23505' && killEventId ? `${memberName}'s death is already in the regears` : error.message || 'Could not create the regear request') }
+    } catch (error) {
+      if (bulk) throw error
+      notify(error.code === '23505' && killEventId ? `${memberName}'s death is already in the regears` : error.message || 'Could not create the regear request')
+    }
+  }
+
+  // Kill log bulk add: one CTA for all, saved one after another so a failure only skips that death.
+  const liveBulkReportDeaths = async ({ eventId, eventName, eventDate, entries }, onProgress) => {
+    let targetEventId = eventId || null
+    let added = 0
+    const failed = []
+    for (const entry of entries) {
+      try {
+        const result = await liveReportDeathV2({ ...entry, eventId: targetEventId, eventName, eventDate }, { bulk: true })
+        targetEventId = targetEventId || result?.eventId || null
+        added += 1
+      } catch (error) {
+        failed.push({ killEventId: entry.killEventId, memberName: entry.memberName, error: error.code === '23505' ? 'already in regears' : error.message || 'could not be saved' })
+      }
+      onProgress?.(added + failed.length)
+    }
+    notify(failed.length ? `${added} added to the regear queue · ${failed.length} could not be added` : `${added} ${added === 1 ? 'death' : 'deaths'} added to the regear queue`)
+    return { added, failed }
   }
 
   const liveEditRegearV2 = async (request, changes) => {
@@ -436,7 +462,7 @@ function App() {
       {active === 'Daily regears' && <DailyRegearsPaginatedV2 requests={regearRequests} events={regearEvents} members={members} items={items} onAdd={(day, event) => { setDeathModalDate(day || dayKey(new Date())); setDeathModalEvent(event || null); setShowDeathModal(true) }} onCreateEvent={(date) => setEventModal({ date })} onEditEvent={(event) => setEventModal(event)} onEdit={(request) => setEditingRequest(request)} onMark={liveMarkRequestRegeared} onDeleteDate={liveDeleteRegearDate} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
       {active === 'Armory' && <ArmoryWithWeaponsPaginated items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} onEdit={openItemEditor} onDelete={liveDeleteItem} />}
-      {active === 'Kill log' && <KillLogPage members={members} requests={regearRequests} items={items} events={regearEvents} onAddRegear={(prefill) => { setDeathPrefill(prefill); setDeathModalDate(dayKey(prefill.diedAt)); setDeathModalEvent(prefill.event || null); setShowDeathModal(true) }} />}
+      {active === 'Kill log' && <KillLogPage members={members} requests={regearRequests} items={items} events={regearEvents} onBulkAdd={liveBulkReportDeaths} onAddRegear={(prefill) => { setDeathPrefill(prefill); setDeathModalDate(dayKey(prefill.diedAt)); setDeathModalEvent(prefill.event || null); setShowDeathModal(true) }} />}
       {active === 'Loot Logger' && <Suspense fallback={<PageLoading />}><LootLoggerPage /></Suspense>}
       {active === 'CTA Sheets' && <Suspense fallback={<PageLoading />}><CtaSheetsPage guild={guild} session={session} members={members} onNotify={notify} /></Suspense>}
       {active === 'Settings' && <AdminSettings onNotify={notify} session={session} guild={guild} motionOn={motionOn} onMotionChange={changeMotion} />}
@@ -1547,13 +1573,78 @@ function battleTitle(battle) {
   return `vs ${names.join(', ')}${battle.opponents.length + battle.moreOpponents > 2 ? ` +${battle.opponents.length + battle.moreOpponents - 2}` : ''}`
 }
 
+// Add several deaths from one battle to the same CTA in one go (Plan 6.5).
+function BulkRegearModal({ battle, deaths, members, items, events, onClose, onSave }) {
+  const battleDay = dayKey(battle.startTime)
+  const firstDeath = deaths[0]
+  const suggestedEvent = firstDeath ? eventForDeath(events, firstDeath) : null
+  const [eventName, setEventName] = useState(suggestedEvent?.name || '')
+  const [rows, setRows] = useState(() => deaths.map((death) => {
+    const member = rosterMemberFor(members, death.victim.name)
+    return { death, member, checked: Boolean(member), role: 'DPS', prefill: regearPrefillFromDeath(death, member, items, events) }
+  }))
+  const [saving, setSaving] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [failed, setFailed] = useState([])
+  const chosen = rows.filter((row) => row.checked && row.member)
+  const selectable = rows.filter((row) => row.member)
+  const offRoster = rows.length - selectable.length
+  const allChosen = selectable.length > 0 && chosen.length === selectable.length
+  const updateRow = (id, changes) => setRows((current) => current.map((row) => row.death.id === id ? { ...row, ...changes } : row))
+  const sameDayEvents = events.filter((event) => event.date === battleDay)
+  const save = async () => {
+    const name = eventName.trim()
+    if (!name || !chosen.length) return
+    const existing = sameDayEvents.find((event) => event.name.trim().toLowerCase() === name.toLowerCase())
+    setSaving(true)
+    setProgress(0)
+    setFailed([])
+    const result = await onSave({
+      eventId: existing?.id || null,
+      eventName: existing?.name || name,
+      eventDate: battleDay,
+      entries: chosen.map((row) => ({ memberId: row.member.id, memberName: row.member.name, role: row.role, chest: row.member.chest || 'Unassigned', diedAt: row.death.time, note: row.prefill.note, killEventId: row.prefill.killEventId, items: row.prefill.items })),
+    }, setProgress)
+    setSaving(false)
+    if (!result?.failed?.length) { onClose(); return }
+    setFailed(result.failed)
+    const failedIds = new Set(result.failed.map((entry) => String(entry.killEventId)))
+    setRows((current) => current.filter((row) => !row.member || failedIds.has(String(row.death.id)) || !row.checked))
+  }
+  return <Modal title="Add deaths to regears" eyebrow={`${battleTitle(battle)} · ${readableDay(battleDay)} · ${utcClockTime(battle.startTime)} UTC`} onClose={saving ? () => {} : onClose}>
+    <div className="bulk-regear">
+      <div className="form-grid bulk-regear-fields">
+        <label>CTA or event name<input list="bulk-event-names" value={eventName} onChange={(event) => setEventName(event.target.value)} placeholder="e.g. Ava Roads CTA" required disabled={saving} /><datalist id="bulk-event-names">{sameDayEvents.map((event) => <option key={event.id} value={event.name} />)}</datalist><small className="field-help">{sameDayEvents.length ? 'Pick one of this day’s CTAs or type a new name.' : 'No CTA on this day yet: this creates one.'}</small></label>
+        <label>Date (UTC)<input value={readableDay(battleDay)} readOnly disabled /></label>
+      </div>
+      <div className="bulk-regear-head">
+        <label className="bulk-regear-all"><input type="checkbox" checked={allChosen} disabled={saving || !selectable.length} onChange={(event) => setRows((current) => current.map((row) => row.member ? { ...row, checked: event.target.checked } : row))} />{chosen.length} of {rows.length} selected</label>
+        {offRoster > 0 && <span>{offRoster} not on the roster: add those one at a time to pick the member.</span>}
+      </div>
+      {failed.length > 0 && <div className="kill-error" role="alert"><span>{failed.length} could not be added: {failed.map((entry) => `${entry.memberName} (${entry.error})`).join(', ')}. They are still listed below; the rest were added.</span></div>}
+      <ul className="bulk-regear-list">
+        {rows.map((row) => <li key={row.death.id} className={`bulk-regear-row ${row.member ? '' : 'bulk-regear-off'}`}>
+          <input type="checkbox" checked={row.checked && Boolean(row.member)} disabled={saving || !row.member} onChange={(event) => updateRow(row.death.id, { checked: event.target.checked })} aria-label={`Add ${row.death.victim.name}`} />
+          <div className="bulk-regear-who"><strong>{row.member?.name || row.death.victim.name}</strong><small>{row.member ? `${utcClockTime(row.death.time)} UTC · Chest ${row.member.chest || 'unassigned'}` : 'Not on the roster'}</small><small className="bulk-regear-kit">{row.prefill.items.map((item) => item.name).join(' · ') || 'No gear recorded'}</small></div>
+          <select value={row.role} disabled={saving || !row.member} onChange={(event) => updateRow(row.death.id, { role: event.target.value })} aria-label={`Role for ${row.death.victim.name}`}>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select>
+        </li>)}
+      </ul>
+    </div>
+    <div className="modal-footer">
+      {saving && <span className="bulk-regear-progress" role="status">Adding {Math.min(progress + 1, chosen.length)} of {chosen.length}…</span>}
+      <button type="button" className="button button-ghost" onClick={onClose} disabled={saving}>{failed.length ? 'Close' : 'Cancel'}</button>
+      <button type="button" className="button button-primary" disabled={saving || !chosen.length || !eventName.trim()} onClick={save}><Icon name="swords" size={15} />{saving ? 'Adding…' : `Add ${chosen.length} ${chosen.length === 1 ? 'regear' : 'regears'}`}</button>
+    </div>
+  </Modal>
+}
+
 function shiftUtcDay(day, delta) {
   const date = new Date(`${day}T12:00:00Z`)
   date.setUTCDate(date.getUTCDate() + delta)
   return dayKey(date)
 }
 
-function KillLogPage({ members = [], requests = [], items = [], events = [], onAddRegear }) {
+function KillLogPage({ members = [], requests = [], items = [], events = [], onAddRegear, onBulkAdd }) {
   const today = dayKey(new Date())
   const [day, setDay] = useState(today)
   const [dayData, setDayData] = useState({})
@@ -1564,6 +1655,7 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
   const [tab, setTab] = useState('deaths')
   const [nameFilter, setNameFilter] = useState('')
   const [rowPage, setRowPage] = useState(1)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const detailRef = useRef(null)
   const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const showDetail = () => requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }))
@@ -1628,6 +1720,8 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
   const deathInfo = (death) => { const member = rosterMemberFor(members, death.victim.name); return { member, regear: regearForDeath(requests, death, member) } }
   const addedCount = deaths.filter((death) => deathInfo(death).regear).length
   const offRoster = deaths.filter((death) => !deathInfo(death).member).length
+  const notAdded = deaths.filter((death) => !deathInfo(death).regear)
+  const bulkReady = notAdded.filter((death) => deathInfo(death).member).length
   const changeRowPage = (page) => {
     setRowPage(page)
     if ((detailRef.current?.getBoundingClientRect().top ?? 0) < 0) showDetail()
@@ -1675,7 +1769,7 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
           </div>
           <div className="kill-toolbar">
             <label className="kill-filter"><span className="sr-only">Filter by name</span><Icon name="search" size={15} /><input value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Filter by player or guild" /></label>
-            {tab === 'deaths' && detail?.data && deaths.length > 0 && <p>{addedCount} of {deaths.length} already in regears{offRoster ? ` · ${offRoster} not on the roster` : ''}</p>}
+            {tab === 'deaths' && detail?.data && deaths.length > 0 && <div className="kill-toolbar-summary"><p>{addedCount} of {deaths.length} already in regears{offRoster ? ` · ${offRoster} not on the roster` : ''}</p>{onBulkAdd && notAdded.length > 1 && <button type="button" className="button button-ghost kill-bulk-button" onClick={() => setBulkOpen(true)} disabled={!bulkReady}><Icon name="plus" size={14} />Add all to regears ({bulkReady})</button>}</div>}
           </div>
           {detail?.loading && !detail?.data && <div className="kill-skeleton kill-skeleton-rows" aria-hidden="true">{[0, 1, 2, 3].map((index) => <span key={index} />)}</div>}
           {detail?.error && <div className="kill-error" role="alert"><span>{detail.error}</span><button type="button" className="button button-ghost" onClick={() => loadBattle(selected.id, true)}>Try again</button></div>}
@@ -1701,6 +1795,7 @@ function KillLogPage({ members = [], requests = [], items = [], events = [], onA
             {!rows.length && <li className="kill-empty-note">{term ? `No players match “${nameFilter.trim()}”.` : tab === 'deaths' ? 'Nobody from Coup de grace died in this battle.' : 'Coup de grace got no kills in this battle.'}</li>}
           </ul>}
           {detail?.data && <Pagination page={safeRowPage} pageSize={KILL_ROWS_PER_PAGE} total={rows.length} onPageChange={changeRowPage} />}
+          {bulkOpen && <BulkRegearModal battle={selected} deaths={notAdded} members={members} items={items} events={events} onClose={() => setBulkOpen(false)} onSave={onBulkAdd} />}
         </>}
       </section>
     </div>
