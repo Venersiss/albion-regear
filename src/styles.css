@@ -1576,3 +1576,66 @@ button.dashboard-metric:focus-visible { outline: 2px solid var(--ember); outline
 .admin-chat-earlier { align-self: center; min-height: 36px; margin: 4px auto 10px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: #1d1814; color: #d9c9bb; font: inherit; font-size: 13px; cursor: pointer; }
 .admin-chat-earlier:hover:not(:disabled) { border-color: #6a4a33; color: #f3c9a6; }
 .admin-chat-earlier:disabled { opacity: .6; cursor: wait; }
+/* Plan 6: Kill log */
+.kill-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+.kill-battles { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 120px); padding: 14px; }
+.kill-refresh { min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: #c9b9ab; font: inherit; font-size: 12px; cursor: pointer; }
+.kill-refresh:hover:not(:disabled) { border-color: #69452f; color: #f0dfd0; }
+.kill-refresh:disabled { opacity: .6; cursor: default; }
+.kill-only-deaths { display: flex; align-items: center; gap: 9px; min-height: 36px; color: #b9aa9d; font-size: 13px; cursor: pointer; }
+.kill-only-deaths input { width: 16px; height: 16px; accent-color: var(--ember); }
+.kill-battle-scroll { min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px 4px; overscroll-behavior: contain; scrollbar-width: thin; }
+.kill-day + .kill-day { margin-top: 12px; }
+.kill-day h3 { position: sticky; top: 0; z-index: 1; margin: 0; padding: 6px 2px; background: #1a1714; color: #8a8077; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.kill-battle { gap: 4px; }
+.kill-battle-top { display: flex; justify-content: space-between; gap: 8px; color: #e0d2c6; font-size: 14px; font-weight: 600; }
+.kill-battle-top b { color: #e98d6a; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.kill-battle-title { overflow: hidden; color: #b9aa9d; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.kill-more-battles { width: 100%; margin-top: 10px; }
+.kill-source-note, .kill-empty-note { margin: 0; color: #8a8077; font-size: 12px; line-height: 1.5; }
+.kill-empty-note { padding: 16px 4px; list-style: none; }
+.kill-error { display: grid; gap: 10px; padding: 12px; border: 1px solid #6b3a2c; border-radius: 8px; background: rgba(80, 34, 24, .35); color: #f0c9b8; font-size: 13px; }
+.kill-error .button { justify-self: start; }
+.kill-skeleton { display: grid; gap: 8px; }
+.kill-skeleton span { height: 62px; border-radius: 6px; background: linear-gradient(90deg, #1f1a16 0%, #29221c 50%, #1f1a16 100%); background-size: 200% 100%; animation: kill-shimmer 1.4s ease-in-out infinite; }
+.kill-skeleton-rows span { height: 76px; }
+@keyframes kill-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.kill-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 12px; }
+.kill-toolbar p { margin: 0; color: #9d9085; font-size: 13px; }
+.kill-filter { display: flex; align-items: center; gap: 8px; flex: 1 1 240px; max-width: 360px; min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: #171411; color: #8a8077; }
+.kill-filter input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; outline: none; }
+.kill-filter:focus-within { border-color: #8a5a3a; box-shadow: 0 0 0 3px rgba(212, 119, 54, .18); }
+.kill-rows { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.kill-row { display: grid; grid-template-columns: minmax(150px, 1fr) auto minmax(150px, auto); align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: rgba(26, 23, 20, .92); content-visibility: auto; contain-intrinsic-size: auto 76px; }
+.kill-row-added { border-color: #2f3d2f; background: rgba(24, 30, 24, .88); }
+.kill-who { display: grid; gap: 3px; min-width: 0; }
+.kill-who strong { overflow: hidden; color: #efe3d7; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.kill-who small { color: #998c80; font-size: 12.5px; }
+.kill-ours { color: #e7b48c; }
+.kill-gear { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.kill-gear li { width: 40px; height: 40px; border-radius: 5px; background: #110f0d; }
+.kill-gear img { display: block; width: 40px; height: 40px; }
+.kill-gear-small li, .kill-gear-small img { width: 32px; height: 32px; }
+.kill-action { display: grid; justify-items: end; gap: 4px; }
+.kill-action .button { min-height: 40px; white-space: nowrap; }
+.kill-added { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.kill-off-roster { color: #d9a25f; font-size: 12px; }
+.kill-fame { color: #b9aa9d; font-size: 13px; white-space: nowrap; }
+.kill-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin: 16px 0 4px; color: #998c80; font-size: 13px; }
+.kill-prefill-warning { margin: 0 0 14px; padding: 10px 12px; border: 1px solid #6b5230; border-radius: 7px; background: rgba(90, 64, 28, .3); color: #ecd3a8; font-size: 13px; line-height: 1.45; }
+@media (max-width: 1100px) { .kill-row { grid-template-columns: minmax(0, 1fr) auto; }.kill-gear { grid-column: 1 / -1; grid-row: 2; } }
+@media (max-width: 860px) {
+  .kill-layout { grid-template-columns: 1fr; }
+  .kill-battles { position: static; max-height: none; }
+  .kill-battle-scroll { max-height: 330px; }
+}
+@media (max-width: 600px) {
+  .kill-row { grid-template-columns: 1fr; gap: 10px; }
+  .kill-gear { grid-row: auto; }
+  .kill-action { justify-items: stretch; }
+  .kill-action .button { width: 100%; min-height: 44px; justify-content: center; }
+  .kill-filter { max-width: none; min-height: 44px; }
+  .kill-refresh { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .kill-skeleton span { animation: none; } }
+.kill-detail { scroll-margin-top: 80px; }

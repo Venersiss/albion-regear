@@ -32,6 +32,7 @@ const icons = {
   eye: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></>,
   edit: <><path d="m4 16.5-.8 3.3 3.3-.8L18.8 6.7a2.1 2.1 0 0 0-3-3L4 16.5Z"/><path d="m14.5 5.5 3 3"/></>,
   trash: <><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></>,
+  target: <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></>,
 }
 
 function Icon({ name, size = 18, className = '' }) {
@@ -102,6 +103,8 @@ function App() {
   const [editingItem, setEditingItem] = useState(null)
   const [deathModalDate, setDeathModalDate] = useState(dayKey(new Date()))
   const [deathModalEvent, setDeathModalEvent] = useState(null)
+  const [deathPrefill, setDeathPrefill] = useState(null)
+  useEffect(() => { if (!showDeathModal) setDeathPrefill(null) }, [showDeathModal])
   const [eventModal, setEventModal] = useState(null)
   const [items, setItems] = useState(initialItems)
   const [regearRequests, setRegearRequests] = useState([])
@@ -241,7 +244,7 @@ function App() {
     } catch (error) { notify(error.message || 'Could not update the regear request') }
   }
 
-  const liveReportDeathV2 = async ({ memberId, memberName, note, chest, role, diedAt, eventId, eventName, eventDate, eventTime, items: requestedItems }) => {
+  const liveReportDeathV2 = async ({ memberId, memberName, note, chest, role, diedAt, eventId, eventName, eventDate, eventTime, killEventId, items: requestedItems }) => {
     const adminName = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'Administrator'
     const admin = { id: session?.user?.id, username: adminName, email: session?.user?.email }
     const itemLines = requestedItems.map((item, index) => typeof item === 'string' ? { name: item, category: 'Custom', quantity: 1, sortOrder: index } : { ...item, quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: item.sortOrder ?? index })
@@ -252,20 +255,20 @@ function App() {
       let savedEvent = null
       if (live) {
         savedEvent = eventId ? null : await createRegearEvent(guild.id, { date: effectiveEventDate, name: effectiveEventName, time: eventTime }, admin)
-        const created = await insertRegearRequest(guild.id, { memberId, memberName, note, chest, role, diedAt, eventId: eventId || savedEvent?.id, eventName: effectiveEventName, eventDate: effectiveEventDate, reportedBy: session?.user?.id, reportedByName: adminName, items: itemLines })
+        const created = await insertRegearRequest(guild.id, { memberId, memberName, note, chest, role, diedAt, eventId: eventId || savedEvent?.id, eventName: effectiveEventName, eventDate: effectiveEventDate, reportedBy: session?.user?.id, reportedByName: adminName, killEventId, items: itemLines })
         requestId = created.id
         if (savedEvent) setRegearEvents((current) => current.some((entry) => entry.id === savedEvent.id) ? current : [...current, { id: savedEvent.id, date: savedEvent.event_date, name: savedEvent.name, notes: savedEvent.notes || '', createdBy: savedEvent.created_by_name || adminName, createdAt: savedEvent.created_at }])
-        setRegearRequests((current) => [{ id: created.id, memberId, memberName, role, diedAt: created.died_at, deathNote: created.death_note, chest: created.issue_chest, eventId: created.event_id || eventId || savedEvent?.id, eventName: savedEvent?.name || effectiveEventName, eventDate: savedEvent?.event_date || effectiveEventDate, eventTime: savedEvent?.event_time || eventTime || '', status: created.status, items: itemLines, weapon: created.weapon, offHand: created.off_hand, helmet: created.helmet, armor: created.armor, boots: created.boots, regearedAt: created.regeared_at, reportedBy: created.reported_by_name || adminName, activity: [{ id: `local-created-${created.id}`, action: 'Regear added', adminName: created.reported_by_name || adminName, at: created.created_at || new Date().toISOString() }] }, ...current])
+        setRegearRequests((current) => [{ id: created.id, memberId, memberName, killEventId: created.kill_event_id || killEventId || null, role, diedAt: created.died_at, deathNote: created.death_note, chest: created.issue_chest, eventId: created.event_id || eventId || savedEvent?.id, eventName: savedEvent?.name || effectiveEventName, eventDate: savedEvent?.event_date || effectiveEventDate, eventTime: savedEvent?.event_time || eventTime || '', status: created.status, items: itemLines, weapon: created.weapon, offHand: created.off_hand, helmet: created.helmet, armor: created.armor, boots: created.boots, regearedAt: created.regeared_at, reportedBy: created.reported_by_name || adminName, activity: [{ id: `local-created-${created.id}`, action: 'Regear added', adminName: created.reported_by_name || adminName, at: created.created_at || new Date().toISOString() }] }, ...current])
       } else {
         requestId = `local-request-${Date.now()}`
         const localEvent = { id: eventId || `local-event-${effectiveEventDate}-${effectiveEventName}`, date: effectiveEventDate, time: eventTime || '', name: effectiveEventName, createdBy: adminName, createdAt: new Date().toISOString() }
         setRegearEvents((current) => current.some((entry) => entry.id === localEvent.id) ? current : [...current, localEvent])
-        setRegearRequests((current) => [{ id: requestId, memberId, memberName, role, diedAt, deathNote: note, chest, eventId: localEvent.id, eventName: localEvent.name, eventDate: localEvent.date, eventTime: localEvent.time, status: 'open', items: itemLines, weapon: itemLines.find((item) => item.category === 'Weapon')?.name || null, offHand: itemLines.find((item) => item.category === 'Off hand')?.name || null, helmet: itemLines.find((item) => item.category === 'Head')?.name || null, armor: itemLines.find((item) => item.category === 'Armor')?.name || null, boots: itemLines.find((item) => item.category === 'Boots')?.name || null, reportedBy: adminName, activity: [{ id: `local-created-${requestId}`, action: 'Regear added', adminName, at: new Date().toISOString() }] }, ...current])
+        setRegearRequests((current) => [{ id: requestId, memberId, memberName, killEventId: killEventId || null, role, diedAt, deathNote: note, chest, eventId: localEvent.id, eventName: localEvent.name, eventDate: localEvent.date, eventTime: localEvent.time, status: 'open', items: itemLines, weapon: itemLines.find((item) => item.category === 'Weapon')?.name || null, offHand: itemLines.find((item) => item.category === 'Off hand')?.name || null, helmet: itemLines.find((item) => item.category === 'Head')?.name || null, armor: itemLines.find((item) => item.category === 'Armor')?.name || null, boots: itemLines.find((item) => item.category === 'Boots')?.name || null, reportedBy: adminName, activity: [{ id: `local-created-${requestId}`, action: 'Regear added', adminName, at: new Date().toISOString() }] }, ...current])
       }
       setMembers((current) => current.map((member) => member.name === memberName ? { ...member, status: 'Open regear', last: 'Open regear · just now', issuedBy: 'Unassigned', deathNote: note, chest, regearRole: role, regearItems: itemLines.map((item) => item.name), requestId } : member))
       setShowDeathModal(false)
       notify(`${memberName} added to the regear queue`)
-    } catch (error) { notify(error.message || 'Could not create the regear request') }
+    } catch (error) { notify(error.code === '23505' && killEventId ? `${memberName}'s death is already in the regears` : error.message || 'Could not create the regear request') }
   }
 
   const liveEditRegearV2 = async (request, changes) => {
@@ -433,6 +436,7 @@ function App() {
       {active === 'Daily regears' && <DailyRegearsPaginatedV2 requests={regearRequests} events={regearEvents} members={members} items={items} onAdd={(day, event) => { setDeathModalDate(day || dayKey(new Date())); setDeathModalEvent(event || null); setShowDeathModal(true) }} onCreateEvent={(date) => setEventModal({ date })} onEditEvent={(event) => setEventModal(event)} onEdit={(request) => setEditingRequest(request)} onMark={liveMarkRequestRegeared} onDeleteDate={liveDeleteRegearDate} onNotify={notify} />}
       {active === 'Members' && <MembersPaginated members={filteredMembers} onOpenMember={() => setShowMemberModal(true)} onMark={liveMarkRegeared} onUpdateChest={liveUpdateMemberChest} onRemove={liveRemoveMember} />}
       {active === 'Armory' && <ArmoryWithWeaponsPaginated items={items} onNotify={notify} onAddWeapon={() => openItemCatalog('Weapon')} onEdit={openItemEditor} onDelete={liveDeleteItem} />}
+      {active === 'Kill log' && <KillLogPage members={members} requests={regearRequests} items={items} events={regearEvents} onAddRegear={(prefill) => { setDeathPrefill(prefill); setDeathModalDate(dayKey(prefill.diedAt)); setDeathModalEvent(prefill.event || null); setShowDeathModal(true) }} />}
       {active === 'Loot Logger' && <Suspense fallback={<PageLoading />}><LootLoggerPage /></Suspense>}
       {active === 'CTA Sheets' && <Suspense fallback={<PageLoading />}><CtaSheetsPage guild={guild} session={session} members={members} onNotify={notify} /></Suspense>}
       {active === 'Settings' && <AdminSettings onNotify={notify} session={session} guild={guild} motionOn={motionOn} onMotionChange={changeMotion} />}
@@ -442,7 +446,7 @@ function App() {
     <AdminNotificationCenter open={notificationsOpen} onClose={() => setNotificationsOpen(false)} session={session} guild={guild} onUnreadChange={setNotificationUnread} onSelect={() => setNotificationsOpen(false)} />
     {showMemberModal && <MemberModal onClose={() => setShowMemberModal(false)} onSave={liveAddMember} />}
     {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} onSave={liveAddPlan} />}
-    {showDeathModal && <DeathModalDailyV2 initialDate={deathModalDate} initialEvent={deathModalEvent} eventOptions={regearEvents} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => { setShowDeathModal(false); setDeathModalEvent(null) }} onSave={(payload) => liveReportDeathV2(payload)} />}
+    {showDeathModal && <DeathModalDailyV2 key={deathPrefill?.killEventId || 'manual'} prefill={deathPrefill} initialDate={deathModalDate} initialEvent={deathModalEvent} eventOptions={regearEvents} members={members} items={items} onRequestAddItem={openItemCatalog} onClose={() => { setShowDeathModal(false); setDeathModalEvent(null); setDeathPrefill(null) }} onSave={(payload) => liveReportDeathV2(payload)} />}
     {editingRequest && <EditRegearModalV2 request={editingRequest} eventOptions={regearEvents} items={items} onClose={() => setEditingRequest(null)} onSave={(payload) => liveEditRegearV2(editingRequest, payload)} onRequestAddItem={(category) => { setEditingRequest(null); openItemCatalog(category) }} />}
     {eventModal && <RegearEventModal initialEvent={eventModal} onClose={() => setEventModal(null)} onDelete={async () => { const deleted = await liveDeleteRegearEvent(eventModal); if (deleted) setEventModal(null) }} onSave={async (payload) => { const saved = eventModal.id ? await liveEditRegearEvent({ ...eventModal, ...payload }) : await liveAddRegearEvent(payload); if (saved) setEventModal(null) }} />}
     {searchMember && <AdminMemberHistoryModal member={searchMember} requests={regearRequests} onClose={() => setSearchMember(null)} onMark={liveMarkRequestRegeared} />}
@@ -509,7 +513,7 @@ function ConnectionError({ message, onSignOut }) {
 }
 
 function Sidebar({ active, onNavigate, userName, userEmail, onSignOut, mobileNavOpen, onClose, ctaCount = 0 }) {
-  const nav = [['Dashboard', 'grid'], ['Daily regears', 'plan'], ['CTA Sheets', 'swords'], ['Loot Logger', 'box'], ['Members', 'users'], ['Armory', 'box']]
+  const nav = [['Dashboard', 'grid'], ['Daily regears', 'plan'], ['Kill log', 'target'], ['CTA Sheets', 'swords'], ['Loot Logger', 'box'], ['Members', 'users'], ['Armory', 'box']]
   return <><button className={`mobile-nav-overlay ${mobileNavOpen ? 'visible' : ''}`} onClick={onClose} aria-label="Close navigation" /><aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
     <button className="mobile-nav-close" onClick={onClose} aria-label="Close navigation"><Icon name="close" size={18} /></button>
     <div className="brand"><div className="brand-mark">A<span>R</span></div><div><div className="brand-name">Albion <em>Regear</em></div><div className="brand-caption">COUP DE GRACE</div></div></div>
@@ -1480,23 +1484,225 @@ function RegearItemsEditor({ items, value = [], onChange, onAddItem }) {
   return <div className="regear-item-editor">{categories.map((category) => { const lines = value.map((line, index) => ({ ...line, index })).filter((line) => line.category === category); const options = categoryItems(category); const listId = `regear-items-${category.toLowerCase().replace(/\s+/g, '-')}`; return <section className="regear-item-group" key={category}><div className="regear-item-group-heading"><div><span>{category}</span><small>{lines.length ? `${lines.length} line${lines.length === 1 ? '' : 's'}` : 'Optional'}</small></div><button type="button" className="slot-add" onClick={() => addLine(category)}><Icon name="plus" size={13} />Add line</button></div>{lines.map((line) => <div className="regear-item-line" key={line.id || `${category}-${line.index}`}><input list={listId} value={line.name || ''} onChange={(event) => updateLine(line.index, { name: event.target.value })} placeholder={`Type ${category.toLowerCase()} name`} /><input className="quantity-input" type="number" min="1" step="1" value={line.quantity || 1} onChange={(event) => updateLine(line.index, { quantity: event.target.value })} aria-label={`${category} quantity`} /><button type="button" className="icon-button subtle-danger" onClick={() => removeLine(line.index)} aria-label={`Remove ${category} line`}><Icon name="trash" size={14} /></button></div>)}<datalist id={listId}>{options.map((item) => <option key={item.id || `${item.name}-${item.tier}`} value={item.name}>{item.tier && item.tier !== 'Unspecified' ? `Tier ${item.tier}` : ''}</option>)}</datalist>{category !== 'Custom' && <button type="button" className="regear-add-catalog" onClick={() => onAddItem(category)}>Missing a {category.toLowerCase()}? Add it to the armory</button>}</section> })}</div>
 }
 
-function DeathModalDailyV2({ initialDate, initialEvent, eventOptions = [], members, items, onRequestAddItem, onClose, onSave }) {
+// ---- Kill log (Plan Phase 6) ----------------------------------------------------------
+// Battles the guild fought in, from Albion's public killboard (via /api/killboard).
+// A death can be turned into a regear: the usual Add regear form opens already filled in.
+const KILL_ROW_BATCH = 30
+const REGEAR_GEAR_SLOTS = ['Weapon', 'Off hand', 'Head', 'Armor', 'Boots', 'Cape']
+const killNumber = new Intl.NumberFormat('en-US')
+const killFame = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
+
+function albionItemIcon(type, quality) { return `https://render.albiononline.com/v1/item/${encodeURIComponent(type)}.png?quality=${quality || 1}&size=64` }
+
+function rosterMemberFor(members, name) {
+  const key = String(name || '').trim().toLowerCase()
+  return key ? members.find((member) => String(member.name || '').trim().toLowerCase() === key) || null : null
+}
+
+// A death counts as added when a regear remembers its kill event, or (for regears added by hand)
+// when the same member has a regear within two minutes of the death.
+function regearForDeath(requests, death, member) {
+  const eventId = String(death.id)
+  const at = new Date(death.time).getTime()
+  return requests.find((request) => String(request.killEventId || '') === eventId)
+    || (member ? requests.find((request) => !request.killEventId && (request.memberId === member.id || request.memberName === member.name) && Math.abs(new Date(request.diedAt).getTime() - at) < 120000) : null)
+    || null
+}
+
+function eventForDeath(events, death) {
+  const day = dayKey(death.time)
+  const clock = utcClockTime(death.time)
+  const sameDay = events.filter((event) => event.date === day)
+  if (sameDay.length <= 1) return sameDay[0] || null
+  const started = sameDay.filter((event) => event.time && String(event.time).slice(0, 5) <= clock).sort((first, second) => String(second.time).localeCompare(String(first.time)))
+  return started[0] || null
+}
+
+function regearPrefillFromDeath(death, member, catalog, events) {
+  const lines = death.victim.gear.filter((piece) => REGEAR_GEAR_SLOTS.includes(piece.slot)).map((piece, index) => {
+    const canonical = canonicalRegearItem({ name: `${piece.name} ${piece.tier}` }, catalog)
+    return { id: `kill-${death.id}-${index}`, category: piece.slot === 'Cape' ? 'Custom' : piece.slot, name: `${canonical.name} ${piece.tier}`, quantity: 1 }
+  })
+  const event = eventForDeath(events, death)
+  return {
+    killEventId: String(death.id),
+    victimName: death.victim.name,
+    member,
+    diedAt: death.time,
+    event: event ? { id: event.id, name: event.name, date: event.date } : null,
+    note: `Killed by ${death.killer.name}${death.killer.guild ? ` (${death.killer.guild})` : ''} · ${killNumber.format(death.victim.ip)} IP`,
+    items: lines,
+  }
+}
+
+function KillGear({ gear, size = 'regular' }) {
+  const shown = gear.filter((piece) => REGEAR_GEAR_SLOTS.includes(piece.slot) || piece.slot === 'Mount')
+  return <ul className={`kill-gear kill-gear-${size}`} aria-label="Equipment">{shown.map((piece) => <li key={`${piece.slot}-${piece.type}`} title={`${piece.slot}: ${piece.name} ${piece.tier}`}><img src={albionItemIcon(piece.type, piece.quality)} alt={`${piece.slot}: ${piece.name} ${piece.tier}`} width="40" height="40" loading="lazy" decoding="async" /></li>)}</ul>
+}
+
+function battleTitle(battle) {
+  const names = battle.opponents.slice(0, 2).map((opponent) => opponent.name)
+  if (!names.length) return 'Skirmish'
+  return `vs ${names.join(', ')}${battle.opponents.length + battle.moreOpponents > 2 ? ` +${battle.opponents.length + battle.moreOpponents - 2}` : ''}`
+}
+
+function KillLogPage({ members = [], requests = [], items = [], events = [], onAddRegear }) {
+  const [battles, setBattles] = useState([])
+  const [hasMore, setHasMore] = useState(false)
+  const [listState, setListState] = useState({ loading: true, error: '' })
+  const [onlyDeaths, setOnlyDeaths] = useState(true)
+  const [selectedId, setSelectedId] = useState(null)
+  const [details, setDetails] = useState({})
+  const [tab, setTab] = useState('deaths')
+  const [nameFilter, setNameFilter] = useState('')
+  const [limit, setLimit] = useState(KILL_ROW_BATCH)
+  const detailRef = useRef(null)
+  const pickBattle = (battleId) => {
+    setSelectedId(battleId)
+    // On phones the battle's deaths are below the list: bring them into view.
+    if (window.matchMedia('(max-width: 860px)').matches) requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }))
+  }
+
+  const loadBattles = async (offset = 0) => {
+    setListState({ loading: true, error: '' })
+    try {
+      const response = await fetch(`/api/killboard?offset=${offset}`)
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || 'The kill log could not be loaded.')
+      setBattles((current) => {
+        const merged = offset ? [...current] : []
+        for (const battle of body.battles || []) if (!merged.some((entry) => entry.id === battle.id)) merged.push(battle)
+        return merged
+      })
+      setHasMore(Boolean(body.hasMore))
+      setListState({ loading: false, error: '' })
+    } catch (error) {
+      setListState({ loading: false, error: error.message === 'Failed to fetch' ? 'The kill log could not be reached. Check your connection and try again.' : error.message })
+    }
+  }
+
+  const loadBattle = async (battleId, force = false) => {
+    if (!force && details[battleId]?.data) return
+    setDetails((current) => ({ ...current, [battleId]: { ...current[battleId], loading: true, error: '' } }))
+    try {
+      const response = await fetch(`/api/killboard?battle=${battleId}`)
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || 'This battle could not be loaded.')
+      setDetails((current) => ({ ...current, [battleId]: { loading: false, error: '', data: body } }))
+    } catch (error) {
+      setDetails((current) => ({ ...current, [battleId]: { loading: false, error: error.message === 'Failed to fetch' ? 'This battle could not be reached. Try again.' : error.message } }))
+    }
+  }
+
+  useEffect(() => { loadBattles(0) }, [])
+
+  const visibleBattles = battles.filter((battle) => !onlyDeaths || battle.ourDeaths > 0)
+  const selected = battles.find((battle) => battle.id === selectedId) || null
+  useEffect(() => {
+    if ((!selectedId || !visibleBattles.some((battle) => battle.id === selectedId)) && visibleBattles.length) setSelectedId(visibleBattles[0].id)
+  }, [visibleBattles.map((battle) => battle.id).join(','), selectedId])
+  useEffect(() => { if (selectedId) loadBattle(selectedId) }, [selectedId])
+  useEffect(() => { setLimit(KILL_ROW_BATCH) }, [selectedId, tab, nameFilter])
+
+  const days = []
+  for (const battle of visibleBattles) {
+    const day = dayKey(battle.startTime)
+    const group = days.find((entry) => entry.day === day)
+    if (group) group.battles.push(battle)
+    else days.push({ day, battles: [battle] })
+  }
+
+  const detail = selectedId ? details[selectedId] : null
+  const deaths = detail?.data?.deaths || []
+  const kills = detail?.data?.kills || []
+  const term = nameFilter.trim().toLowerCase()
+  const rows = (tab === 'deaths' ? deaths : kills).filter((event) => !term || `${event.victim.name} ${event.killer.name} ${event.victim.guild} ${event.killer.guild}`.toLowerCase().includes(term))
+  const deathInfo = (death) => { const member = rosterMemberFor(members, death.victim.name); return { member, regear: regearForDeath(requests, death, member) } }
+  const addedCount = deaths.filter((death) => deathInfo(death).regear).length
+  const offRoster = deaths.filter((death) => !deathInfo(death).member).length
+
+  return <div className="page kill-log-page">
+    <PageIntro eyebrow="Albion killboard · Asia server" title="Kill log" description="Battles Coup de grace fought in, from the game’s public killboard. Open a battle to see who died, then add their death to the regears with the kit already filled in." />
+    <div className="kill-layout">
+      <aside className="panel kill-battles" aria-label="Battles">
+        <div className="day-list-heading"><span className="eyebrow">Battles</span><button type="button" className="kill-refresh" onClick={() => loadBattles(0)} disabled={listState.loading}>{listState.loading && !battles.length ? 'Loading…' : 'Refresh'}</button></div>
+        <label className="kill-only-deaths"><input type="checkbox" checked={onlyDeaths} onChange={(event) => setOnlyDeaths(event.target.checked)} />Only battles where we lost players</label>
+        {listState.error && <div className="kill-error" role="alert"><span>{listState.error}</span><button type="button" className="button button-ghost" onClick={() => loadBattles(0)}>Try again</button></div>}
+        {listState.loading && !battles.length && <div className="kill-skeleton" aria-hidden="true">{[0, 1, 2, 3, 4].map((index) => <span key={index} />)}</div>}
+        <div className="kill-battle-scroll">
+          {days.map((group) => <section key={group.day} className="kill-day">
+            <h3>{readableDay(group.day)}</h3>
+            {group.battles.map((battle) => <button type="button" key={battle.id} className={`day-button kill-battle ${battle.id === selectedId ? 'selected' : ''}`} aria-pressed={battle.id === selectedId} onClick={() => pickBattle(battle.id)}>
+              <span className="kill-battle-top"><span>{utcClockTime(battle.startTime)} UTC</span>{battle.ourDeaths > 0 && <b>{battle.ourDeaths} {battle.ourDeaths === 1 ? 'death' : 'deaths'}</b>}</span>
+              <span className="kill-battle-title">{battleTitle(battle)}</span>
+              <small>{battle.ourPlayers} of ours · {battle.ourKills} {battle.ourKills === 1 ? 'kill' : 'kills'} · {battle.totalPlayers} players</small>
+            </button>)}
+          </section>)}
+          {!listState.loading && !listState.error && !visibleBattles.length && <p className="kill-empty-note">{battles.length ? 'No recent battles where we lost players. Untick the box to see every battle.' : 'No recent battles on the killboard.'}</p>}
+          {hasMore && <button type="button" className="button button-ghost kill-more-battles" onClick={() => loadBattles(battles.length)} disabled={listState.loading}>{listState.loading ? 'Loading…' : 'Load older battles'}</button>}
+        </div>
+        <p className="kill-source-note">Small fights (under 3 kills) don’t appear as battles. New deaths show up a few minutes after they happen.</p>
+      </aside>
+
+      <section ref={detailRef} className="daily-detail kill-detail" aria-live="polite">
+        {!selected && !listState.loading && <EmptyState text="Pick a battle to see its deaths and kills." />}
+        {selected && <>
+          <div className="daily-detail-heading"><div><span className="eyebrow">{readableDay(dayKey(selected.startTime))} · {utcClockTime(selected.startTime)}–{utcClockTime(selected.endTime)} UTC</span><h2>{battleTitle(selected)}</h2><p>{selected.ourPlayers} Coup de grace players · {killNumber.format(selected.totalPlayers)} players in total · {killNumber.format(selected.totalKills)} kills · {killFame.format(selected.totalFame)} fame</p></div></div>
+          <div className="daily-status-tabs" role="tablist" aria-label="Deaths or kills">
+            <button type="button" role="tab" aria-selected={tab === 'deaths'} className={`daily-status-tab daily-status-tab-open ${tab === 'deaths' ? 'selected' : ''}`} onClick={() => setTab('deaths')}><span>Our deaths</span><strong>{detail?.data ? deaths.length : selected.ourDeaths}</strong></button>
+            <button type="button" role="tab" aria-selected={tab === 'kills'} className={`daily-status-tab daily-status-tab-regeared ${tab === 'kills' ? 'selected' : ''}`} onClick={() => setTab('kills')}><span>Our kills</span><strong>{detail?.data ? kills.length : selected.ourKills}</strong></button>
+          </div>
+          <div className="kill-toolbar">
+            <label className="kill-filter"><span className="sr-only">Filter by name</span><Icon name="search" size={15} /><input value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Filter by player or guild" /></label>
+            {tab === 'deaths' && detail?.data && deaths.length > 0 && <p>{addedCount} of {deaths.length} already in regears{offRoster ? ` · ${offRoster} not on the roster` : ''}</p>}
+          </div>
+          {detail?.loading && !detail?.data && <div className="kill-skeleton kill-skeleton-rows" aria-hidden="true">{[0, 1, 2, 3].map((index) => <span key={index} />)}</div>}
+          {detail?.error && <div className="kill-error" role="alert"><span>{detail.error}</span><button type="button" className="button button-ghost" onClick={() => loadBattle(selected.id, true)}>Try again</button></div>}
+          {detail?.data && <ul className="kill-rows">
+            {rows.slice(0, limit).map((event) => {
+              if (tab === 'kills') return <li key={event.id} className="kill-row kill-row-kill">
+                <div className="kill-who"><strong>{event.victim.name}</strong><small>{event.victim.guild || 'No guild'}{event.victim.alliance ? ` [${event.victim.alliance}]` : ''} · {killNumber.format(event.victim.ip)} IP · {utcClockTime(event.time)} UTC</small><small>Killed by <span className="kill-ours">{event.killer.name}</span>{event.killer.ours ? '' : ` (${event.killer.guild})`}{event.participants > 1 ? ` with ${event.participants - 1} more` : ''}</small></div>
+                <KillGear gear={event.victim.gear} size="small" />
+                <div className="kill-action"><span className="kill-fame">{killFame.format(event.fame)} fame</span></div>
+              </li>
+              const { member, regear } = deathInfo(event)
+              return <li key={event.id} className={`kill-row ${regear ? 'kill-row-added' : ''}`}>
+                <div className="kill-who"><strong>{event.victim.name}</strong><small>{utcClockTime(event.time)} UTC · {killNumber.format(event.victim.ip)} IP</small><small>Killed by {event.killer.name}{event.killer.guild ? ` (${event.killer.guild})` : ''}</small></div>
+                <KillGear gear={event.victim.gear} />
+                <div className="kill-action">
+                  {regear
+                    ? <span className="kill-added"><Icon name="check" size={14} />{regear.status === 'regeared' ? 'Regeared' : 'In regears'}</span>
+                    : <button type="button" className="button button-primary" onClick={() => onAddRegear?.(regearPrefillFromDeath(event, member, items, events))}><Icon name="plus" size={14} />Add to regears</button>}
+                  {!member && !regear && <small className="kill-off-roster">Not on the roster</small>}
+                </div>
+              </li>
+            })}
+            {!rows.length && <li className="kill-empty-note">{term ? `No players match “${nameFilter.trim()}”.` : tab === 'deaths' ? 'Nobody from Coup de grace died in this battle.' : 'Coup de grace got no kills in this battle.'}</li>}
+          </ul>}
+          {detail?.data && rows.length > limit && <div className="kill-more"><span>Showing {limit} of {rows.length}</span><button type="button" className="button button-ghost" onClick={() => setLimit((value) => value + KILL_ROW_BATCH)}>Show {Math.min(KILL_ROW_BATCH, rows.length - limit)} more</button></div>}
+        </>}
+      </section>
+    </div>
+  </div>
+}
+
+function DeathModalDailyV2({ initialDate, initialEvent, eventOptions = [], members, items, onRequestAddItem, onClose, onSave, prefill = null }) {
   const today = dayKey(new Date())
-  const [memberName, setMemberName] = useState('')
-  const [memberQuery, setMemberQuery] = useState('')
+  const [memberName, setMemberName] = useState(prefill?.member?.name || '')
+  const [memberQuery, setMemberQuery] = useState(prefill?.member?.name || prefill?.victimName || '')
   const [open, setOpen] = useState(false)
   const [role, setRole] = useState('DPS')
   const [eventName, setEventName] = useState(initialEvent?.name || '')
-  const [diedDate, setDiedDate] = useState(initialEvent?.date || initialDate || today)
-  const [diedTime, setDiedTime] = useState(() => utcClockTime(new Date()))
-  const [chest, setChest] = useState('')
-  const [note, setNote] = useState('')
-  const [itemLines, setItemLines] = useState([])
+  const [diedDate, setDiedDate] = useState(prefill ? dayKey(prefill.diedAt) : initialEvent?.date || initialDate || today)
+  const [diedTime, setDiedTime] = useState(() => utcClockTime(prefill ? prefill.diedAt : new Date()))
+  const [chest, setChest] = useState(prefill?.member?.chest || '')
+  const [note, setNote] = useState(prefill?.note || '')
+  const [itemLines, setItemLines] = useState(() => prefill?.items || [])
   const selectedMember = members.find((member) => member.name === memberName)
   const suggestions = members.filter((member) => member.name.toLowerCase().includes(memberQuery.toLowerCase())).slice(0, 7)
   const chooseMember = (member) => { setMemberName(member.name); setMemberQuery(member.name); setRole('DPS'); setChest(member.chest || 'Unassigned'); setOpen(false) }
-  const save = () => onSave({ memberId: selectedMember.id, memberName, role, eventId: initialEvent?.id && eventName.trim() === initialEvent.name && diedDate === initialEvent.date ? initialEvent.id : null, eventName: eventName.trim() || 'Unassigned event', eventDate: diedDate, diedAt: utcIsoFromFields(diedDate, diedTime), chest: chest.trim() || 'Unassigned', note: note.trim() || `Death during ${eventName.trim() || 'Unassigned event'}`, items: itemLines.filter((item) => item.name?.trim()).map((item, index) => ({ ...item, name: item.name.trim(), quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: index })) })
-  return <Modal title="Add daily regear" eyebrow="Record a member death" onClose={onClose}><div className="form-grid"><div className="member-search-field"><label>Member</label><div className="member-search"><Icon name="search" size={15} /><input autoFocus value={memberQuery} onFocus={() => setOpen(true)} onChange={(event) => { setMemberQuery(event.target.value); setMemberName(''); setOpen(true) }} placeholder="Search character name..." /></div>{open && memberQuery.trim() && <div className="member-suggestion-box">{suggestions.map((member) => <button type="button" key={member.id || member.name} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseMember(member)}><span className={`avatar avatar-${member.tone}`}>{member.avatar}</span><span><strong>{member.name}</strong><small>Issue chest {member.chest}</small></span></button>)}{!suggestions.length && <span className="suggestion-empty">No roster member found.</span>}</div>}</div><label>Role for this death<select value={role} onChange={(event) => setRole(event.target.value)}>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label><label>Death date (UTC)<input type="date" value={diedDate} onChange={(event) => setDiedDate(event.target.value)} required /></label><label>Death time (UTC · 24-hour)<input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" maxLength="5" value={diedTime} onChange={(event) => setDiedTime(event.target.value.replace(/[^0-9:]/g, '').slice(0, 5))} placeholder="21:30" required /></label><label>CTA or event name<input list="daily-event-names" value={eventName} onChange={(event) => setEventName(event.target.value)} placeholder="e.g. Ava Roads CTA" required /><datalist id="daily-event-names">{eventOptions.map((event) => <option key={event.id} value={event.name} />)}</datalist></label><label>Death note<input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note" /></label><label>Issue chest<input value={chest} onChange={(event) => setChest(event.target.value)} placeholder="Auto-filled from member" /></label><div className="field-full"><label>Replacement items and quantities</label><small className="field-help">Add one or more lines per category. Quantity is how many of that item this regear needs.</small><RegearItemsEditor items={items} value={itemLines} onChange={setItemLines} onAddItem={onRequestAddItem} /></div></div><div className="death-callout"><div className="death-pulse" /><div><strong>New open regear</strong><span>{selectedMember ? `${selectedMember.name} · ${role} · Chest ${chest || 'unassigned'} · ${eventName || 'Unassigned event'}` : 'Search for the member who died'}</span></div></div><div className="modal-footer"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" disabled={!selectedMember || !eventName.trim() || !diedDate || !diedTime} onClick={save}><Icon name="swords" size={15} />Add daily regear</button></div></Modal>
+  const save = () => onSave({ memberId: selectedMember.id, memberName, role, eventId: initialEvent?.id && eventName.trim() === initialEvent.name && diedDate === initialEvent.date ? initialEvent.id : null, eventName: eventName.trim() || 'Unassigned event', eventDate: diedDate, diedAt: utcIsoFromFields(diedDate, diedTime), killEventId: prefill?.killEventId || null, chest: chest.trim() || 'Unassigned', note: note.trim() || `Death during ${eventName.trim() || 'Unassigned event'}`, items: itemLines.filter((item) => item.name?.trim()).map((item, index) => ({ ...item, name: item.name.trim(), quantity: Math.max(1, Number(item.quantity) || 1), sortOrder: index })) })
+  return <Modal title={prefill ? 'Add regear from the kill log' : 'Add daily regear'} eyebrow={prefill ? `Death of ${prefill.victimName} · check and save` : 'Record a member death'} onClose={onClose}>{prefill && !prefill.member && <p className="kill-prefill-warning">{prefill.victimName} isn’t on the roster under that name. Pick the member below, or add them on the Members page first.</p>}<div className="form-grid"><div className="member-search-field"><label>Member</label><div className="member-search"><Icon name="search" size={15} /><input autoFocus value={memberQuery} onFocus={() => setOpen(true)} onChange={(event) => { setMemberQuery(event.target.value); setMemberName(''); setOpen(true) }} placeholder="Search character name..." /></div>{open && memberQuery.trim() && <div className="member-suggestion-box">{suggestions.map((member) => <button type="button" key={member.id || member.name} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseMember(member)}><span className={`avatar avatar-${member.tone}`}>{member.avatar}</span><span><strong>{member.name}</strong><small>Issue chest {member.chest}</small></span></button>)}{!suggestions.length && <span className="suggestion-empty">No roster member found.</span>}</div>}</div><label>Role for this death<select value={role} onChange={(event) => setRole(event.target.value)}>{roleOptions.map((option) => <option key={option}>{option}</option>)}</select></label><label>Death date (UTC)<input type="date" value={diedDate} onChange={(event) => setDiedDate(event.target.value)} required /></label><label>Death time (UTC · 24-hour)<input type="text" inputMode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" maxLength="5" value={diedTime} onChange={(event) => setDiedTime(event.target.value.replace(/[^0-9:]/g, '').slice(0, 5))} placeholder="21:30" required /></label><label>CTA or event name<input list="daily-event-names" value={eventName} onChange={(event) => setEventName(event.target.value)} placeholder="e.g. Ava Roads CTA" required /><datalist id="daily-event-names">{eventOptions.map((event) => <option key={event.id} value={event.name} />)}</datalist></label><label>Death note<input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note" /></label><label>Issue chest<input value={chest} onChange={(event) => setChest(event.target.value)} placeholder="Auto-filled from member" /></label><div className="field-full"><label>Replacement items and quantities</label><small className="field-help">Add one or more lines per category. Quantity is how many of that item this regear needs.</small><RegearItemsEditor items={items} value={itemLines} onChange={setItemLines} onAddItem={onRequestAddItem} /></div></div><div className="death-callout"><div className="death-pulse" /><div><strong>New open regear</strong><span>{selectedMember ? `${selectedMember.name} · ${role} · Chest ${chest || 'unassigned'} · ${eventName || 'Unassigned event'}` : 'Search for the member who died'}</span></div></div><div className="modal-footer"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button type="button" className="button button-primary" disabled={!selectedMember || !eventName.trim() || !diedDate || !diedTime} onClick={save}><Icon name="swords" size={15} />Add daily regear</button></div></Modal>
 }
 
 function EditRegearModalV2({ request, eventOptions = [], items, onRequestAddItem, onClose, onSave }) {
