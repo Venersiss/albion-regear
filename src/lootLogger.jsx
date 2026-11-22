@@ -7,6 +7,13 @@ export const LOOT_LOGGER_REPO_URL = 'https://github.com/Venersiss/loot-logger'
 export const NPCAP_URL = 'https://npcap.com/#download'
 
 const PAGE_SIZE = 200
+const LOOTER_BATCH = 30
+const ITEM_BATCH = 120
+function ShowMore({ shown, total, step, noun, onMore }) {
+  if (total <= shown) return null
+  const next = Math.min(step, total - shown)
+  return <div className="ll-more"><span>Showing {fmt.format(shown)} of {fmt.format(total)} {noun}</span><button type="button" className="ll-btn ll-btn-ghost" onClick={onMore}>Show {fmt.format(next)} more</button></div>
+}
 const MAX_FILE_BYTES = 25 * 1024 * 1024
 const OTHER_TIER = { key: 'other', label: 'Other', color: '#7d746b' }
 const TIER_COLORS = { 1: '#9a948c', 2: '#a58a6c', 3: '#7fae84', 4: '#6aa0cf', 5: '#cf6a5f', 6: '#e0913f', 7: '#e6c45a', 8: '#f3ede4' }
@@ -203,6 +210,8 @@ function Looters({ rows, deaths, hasKillfeed, term }) {
   }, [looters])
 
   const shown = looters.filter((p) => !term || `${p.name} ${p.guild} ${p.groups.map((g) => g.name).join(' ')}`.toLowerCase().includes(term))
+  const [limit, setLimit] = useState(LOOTER_BATCH)
+  useEffect(() => { setLimit(LOOTER_BATCH) }, [term, rows])
 
   return <div className="ll-looters-wrap">
     <div className="ll-legend" aria-label="Colour key">
@@ -210,7 +219,7 @@ function Looters({ rows, deaths, hasKillfeed, term }) {
       {!hasKillfeed && <span className="ll-legend-tip">Add the killfeed file from the same session to see who died after looting.</span>}
     </div>
     <ul className="ll-looters">
-      {shown.map((p) => <li key={p.name} className="ll-looter">
+      {shown.slice(0, limit).map((p) => <li key={p.name} className="ll-looter">
         <div className="ll-looter-head">
           <span className="ll-looter-name"><b>{p.name}</b>{p.guild && <small>{p.guild}</small>}</span>
           <span className="ll-looter-total">{fmt.format(p.qty)}<small>items</small></span>
@@ -226,6 +235,7 @@ function Looters({ rows, deaths, hasKillfeed, term }) {
       </li>)}
       {!shown.length && <li className="ll-empty">No looters match "{term}".</li>}
     </ul>
+    <ShowMore shown={Math.min(limit, shown.length)} total={shown.length} step={LOOTER_BATCH} noun="looters" onMore={() => setLimit((value) => value + LOOTER_BATCH)} />
   </div>
 }
 
@@ -245,6 +255,8 @@ function LogView({ file, deaths = new Map(), hasKillfeed = false }) {
 
   const items = useMemo(() => (isLoot ? itemTotals(parsed.rows) : []), [parsed, isLoot])
   const shownItems = items.filter((it) => !term || `${it.name} ${it.id} ${[...it.looters].join(' ')}`.toLowerCase().includes(term))
+  const [itemLimit, setItemLimit] = useState(ITEM_BATCH)
+  useEffect(() => { setItemLimit(ITEM_BATCH) }, [term, parsed])
 
   if (parsed.type === 'empty') return <div className="ll-callout"><strong>This file has no events yet.</strong><p>The logger creates the file when the first event happens. If you only picked up your own items after dying, nothing is logged. See "Why is my log empty?" below.</p></div>
 
@@ -271,7 +283,7 @@ function LogView({ file, deaths = new Map(), hasKillfeed = false }) {
 
     {view === 'looters' && isLoot && <Looters rows={parsed.rows} deaths={deaths} hasKillfeed={hasKillfeed} term={term} />}
 
-    {view === 'items' && isLoot && <ul className="ll-items">{shownItems.map((it) => { const tier = tierOf(it.id); return <li key={it.id}><ItemIcon itemId={it.id} name={it.name} size={44} /><span className="ll-items-name"><b>{it.name}</b><small><span className="ll-chip" style={{ '--tier': tier.color }}>{tier.label}</span>{[...it.looters].slice(0, 3).join(', ')}{it.looters.size > 3 ? ` +${it.looters.size - 3}` : ''}</small></span><span className="ll-qty">{fmt.format(it.qty)}<small>looted</small></span></li> })}{!shownItems.length && <li className="ll-empty">No items match "{search}".</li>}</ul>}
+    {view === 'items' && isLoot && <ul className="ll-items">{shownItems.slice(0, itemLimit).map((it) => { const tier = tierOf(it.id); return <li key={it.id}><ItemIcon itemId={it.id} name={it.name} size={44} /><span className="ll-items-name"><b>{it.name}</b><small><span className="ll-chip" style={{ '--tier': tier.color }}>{tier.label}</span>{[...it.looters].slice(0, 3).join(', ')}{it.looters.size > 3 ? ` +${it.looters.size - 3}` : ''}</small></span><span className="ll-qty">{fmt.format(it.qty)}<small>looted</small></span></li> })}{!shownItems.length && <li className="ll-empty">No items match "{search}".</li>}</ul>}{view === 'items' && isLoot && <ShowMore shown={Math.min(itemLimit, shownItems.length)} total={shownItems.length} step={ITEM_BATCH} noun="items" onMore={() => setItemLimit((value) => value + ITEM_BATCH)} />}
 
     {(view === 'events' || !isLoot) && <>
       <div className="ll-table-wrap"><table className="ll-table">

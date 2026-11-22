@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { fetchAllRows } from './fetchAll'
 
 export const ctaClassifications = ['Tank', 'Support', 'Healer', 'DPS', 'Caller']
 export const ctaAttendanceStatuses = ['signed_up', 'present', 'late', 'absent', 'excused']
@@ -92,13 +93,13 @@ function toUiSheet(row, parties = [], slots = [], signups = [], memberNames = {}
 export async function loadCtaWorkspace(guildId) {
   if (!supabase) throw new Error('Supabase is not configured')
   const [sheetsResult, partiesResult, slotsResult, signupsResult, membersResult, activityResult, templatesResult] = await Promise.all([
-    supabase.from('cta_sheets').select('*').eq('guild_id', guildId).neq('status', 'archived').order('starts_at', { ascending: false }),
-    supabase.from('cta_parties').select('*').order('sort_order'),
-    supabase.from('cta_slots').select('*').order('sort_order'),
-    supabase.from('cta_signups').select('*, member:members(id, character_name)').order('signed_up_at'),
-    supabase.from('members').select('id, character_name').eq('guild_id', guildId).eq('active', true).order('character_name'),
+    fetchAllRows(() => supabase.from('cta_sheets').select('*').eq('guild_id', guildId).neq('status', 'archived').order('starts_at', { ascending: false }).order('id')),
+    fetchAllRows(() => supabase.from('cta_parties').select('*').order('sort_order').order('id')),
+    fetchAllRows(() => supabase.from('cta_slots').select('*').order('sort_order').order('id')),
+    fetchAllRows(() => supabase.from('cta_signups').select('*, member:members(id, character_name)').order('signed_up_at').order('id')),
+    fetchAllRows(() => supabase.from('members').select('id, character_name').eq('guild_id', guildId).eq('active', true).order('character_name').order('id')),
     supabase.from('cta_activity').select('*').eq('guild_id', guildId).order('created_at', { ascending: false }).limit(300),
-    supabase.from('cta_templates').select('*').eq('guild_id', guildId).order('name'),
+    fetchAllRows(() => supabase.from('cta_templates').select('*').eq('guild_id', guildId).order('name').order('id')),
   ])
   for (const result of [sheetsResult, partiesResult, slotsResult, signupsResult, membersResult, activityResult, templatesResult]) if (result.error) throw result.error
   const memberNames = Object.fromEntries((membersResult.data || []).map((member) => [member.id, member.character_name]))

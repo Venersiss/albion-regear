@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { fetchAllRows } from './fetchAll'
 
 const tones = ['violet', 'blue', 'green', 'orange', 'rose', 'teal']
 
@@ -166,13 +167,13 @@ export async function loadWorkspace() {
   if (!guild) throw new Error('Coup De Grace was not found or this account is not linked as an admin yet.')
 
   const [membersResult, itemsResult, requestsResult, plansResult, notificationsResult, eventsResult, requestItemsResult] = await Promise.all([
-    supabase.from('members').select('*').eq('guild_id', guild.id).eq('active', true).order('character_name'),
-    supabase.from('items').select('*, chests(label)').eq('guild_id', guild.id).order('name'),
-    supabase.from('regear_requests').select('*').eq('guild_id', guild.id).order('created_at', { ascending: false }),
-    supabase.from('regear_plans').select('*').eq('guild_id', guild.id).order('starts_at'),
-    supabase.from('admin_notifications').select('id, type, title, actor_name, entity_id, created_at').eq('guild_id', guild.id).eq('type', 'regear').order('created_at', { ascending: true }),
-    supabase.from('regear_events').select('*').eq('guild_id', guild.id).order('event_date', { ascending: false }).order('name'),
-    supabase.from('regear_request_items').select('*').order('sort_order'),
+    fetchAllRows(() => supabase.from('members').select('*').eq('guild_id', guild.id).eq('active', true).order('character_name').order('id')),
+    fetchAllRows(() => supabase.from('items').select('*, chests(label)').eq('guild_id', guild.id).order('name').order('id')),
+    fetchAllRows(() => supabase.from('regear_requests').select('*').eq('guild_id', guild.id).order('created_at', { ascending: false }).order('id')),
+    fetchAllRows(() => supabase.from('regear_plans').select('*').eq('guild_id', guild.id).order('starts_at').order('id')),
+    fetchAllRows(() => supabase.from('admin_notifications').select('id, type, title, actor_name, entity_id, created_at').eq('guild_id', guild.id).eq('type', 'regear').order('created_at', { ascending: true }).order('id')),
+    fetchAllRows(() => supabase.from('regear_events').select('*').eq('guild_id', guild.id).order('event_date', { ascending: false }).order('name').order('id')),
+    fetchAllRows(() => supabase.from('regear_request_items').select('*').order('sort_order').order('id')),
   ])
   if (membersResult.error) throw membersResult.error
   if (itemsResult.error) throw itemsResult.error
